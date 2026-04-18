@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html class="light" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Finansal Odağım</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-bright": "#faf9fe",
+                    "on-secondary-container": "#00732a",
+                    "on-primary-fixed-variant": "#004493",
+                    "on-tertiary-fixed": "#2d1600",
+                    "tertiary": "#894d00",
+                    "tertiary-container": "#ac6300",
+                    "surface-dim": "#dad9df",
+                    "error": "#ba1a1a",
+                    "inverse-on-surface": "#f1f0f5",
+                    "primary": "#0058bc",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-fixed": "#ffdcbf",
+                    "primary-container": "#0070eb",
+                    "on-tertiary-container": "#fffbff",
+                    "on-background": "#1a1b1f",
+                    "primary-fixed-dim": "#adc6ff",
+                    "secondary-fixed-dim": "#53e16f",
+                    "outline": "#717786",
+                    "background": "#faf9fe",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed-dim": "#ffb874",
+                    "on-error-container": "#93000a",
+                    "on-surface-variant": "#414755",
+                    "surface-container-low": "#f4f3f8",
+                    "surface-container-high": "#e9e7ed",
+                    "error-container": "#ffdad6",
+                    "inverse-primary": "#adc6ff",
+                    "on-primary": "#ffffff",
+                    "secondary-fixed": "#72fe88",
+                    "surface": "#faf9fe",
+                    "secondary": "#006e28",
+                    "on-tertiary": "#ffffff",
+                    "on-surface": "#1a1b1f",
+                    "primary-fixed": "#d8e2ff",
+                    "on-secondary-fixed-variant": "#00531c",
+                    "on-primary-container": "#fefcff",
+                    "surface-tint": "#005bc1",
+                    "outline-variant": "#c1c6d7",
+                    "surface-variant": "#e3e2e7",
+                    "on-primary-fixed": "#001a41",
+                    "on-tertiary-fixed-variant": "#6a3b00",
+                    "secondary-container": "#6ffb85",
+                    "surface-container": "#eeedf3",
+                    "surface-container-highest": "#e3e2e7",
+                    "inverse-surface": "#2f3034",
+                    "on-secondary-fixed": "#002107",
+                    "on-error": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        .tap-highlight-none { -webkit-tap-highlight-color: transparent; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-32">
+<!-- Top Navigation Anchor (Manual Implementation matching Ledger identity) -->
+<header class="bg-[#faf9fe]/80 dark:bg-[#1a1b1f]/80 backdrop-blur-2xl w-full top-0 sticky z-50 flex justify-between items-end px-6 pt-12 pb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="portrait of a professional man with a friendly expression in a soft studio lighting setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMEL9cs1LWT6msN1nLa8QzD08uHLuK_M_2hEU-kw5W8nQIBLtlyd4C0N15GQOlnuCGjhmUojuK95SHphEzOvL9RuuIRLUxd4v1Rb5vugoX23HgEGVP4wErx3S6N_dMyErrzZOzVzuZUqn8zWhFbBW8YBftzVu4F7grLAJI2aMaGKoWArNRwlLyOOduQns469x2jqhnLtvi-4TMNTQ-9gG3khf9WPEHpHJAeV9tDW4G2hrQWtFcupUQ6aCD8W0iSOsj-36XYEALq70"/>
+</div>
+<span class="text-2xl font-black tracking-tighter text-primary">Ledger</span>
+</div>
+<button class="text-slate-900 material-symbols-outlined hover:opacity-70 transition-opacity active:scale-95 duration-200">notifications</button>
+</header>
+<main class="px-6 pt-8 max-w-md mx-auto space-y-10">
+<!-- Hero Balance Section -->
+<section class="space-y-1">
+<h1 class="text-3xl font-extrabold tracking-tight text-on-surface">Finansal Odağım</h1>
+<div class="pt-4">
+<div class="text-[3.5rem] font-black leading-none tracking-tight text-secondary">₺34.500,00</div>
+<div class="text-on-surface-variant font-medium text-sm mt-2 flex items-center gap-1">
+                    Mevcut Bakiye
+                    <span class="material-symbols-outlined text-xs">info</span>
+</div>
+</div>
+</section>
+<!-- Alert Card -->
+<section>
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] flex items-center gap-4 group active:scale-95 transition-transform duration-200 cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">warning</span>
+</div>
+<div class="flex-1">
+<div class="font-bold text-on-surface">Yaklaşan Ödeme: Kira</div>
+<div class="text-on-surface-variant text-sm">Yarın • ₺15.000,00</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</div>
+</section>
+<!-- AI Insights Section -->
+<section>
+<div class="relative overflow-hidden bg-primary/5 rounded-2xl p-5 border border-primary/10">
+<div class="flex gap-3 items-start">
+<div class="bg-primary text-on-primary p-2 rounded-lg">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<p class="text-primary font-medium text-[15px] leading-relaxed">
+                        Bu ay dışarıda yeme harcamanız hedefin <span class="font-bold underline">%20 üzerinde.</span> Dikkatli olmanızı öneririm.
+                    </p>
+</div>
+<div class="absolute -right-4 -bottom-4 w-24 h-24 bg-primary/10 blur-3xl rounded-full"></div>
+</div>
+</section>
+<!-- Quick Transaction Form -->
+<section class="space-y-4">
+<h2 class="font-['Inter'] text-[11px] font-bold tracking-widest text-on-surface-variant uppercase pl-1">HIZLI İŞLEM EKLE</h2>
+<div class="bg-surface-container-low rounded-2xl p-1 space-y-px">
+<!-- Amount Row -->
+<div class="bg-surface-container-lowest p-4 rounded-t-xl flex justify-between items-center">
+<span class="text-on-surface-variant font-medium">Tutar</span>
+<input class="text-right font-bold text-xl text-primary bg-transparent border-none focus:ring-0 p-0 placeholder:text-outline-variant" placeholder="0,00 ₺" type="text"/>
+</div>
+<!-- Description Row -->
+<div class="bg-surface-container-lowest p-4 flex justify-between items-center">
+<span class="text-on-surface-variant font-medium">Açıklama</span>
+<input class="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 placeholder:text-outline-variant" placeholder="Açıklama (örn: Kahve)" type="text"/>
+</div>
+<!-- Segmented Control -->
+<div class="bg-surface-container-lowest p-4">
+<div class="flex bg-surface-container-high p-1 rounded-full">
+<button class="flex-1 py-2 text-sm font-bold rounded-full bg-primary text-on-primary shadow-sm">Harcama</button>
+<button class="flex-1 py-2 text-sm font-bold rounded-full text-on-surface-variant">Gelir</button>
+</div>
+</div>
+<!-- Switch Row -->
+<div class="bg-surface-container-lowest p-4 rounded-b-xl flex justify-between items-center">
+<span class="text-on-surface-variant font-medium">Tekrarlı Ödeme</span>
+<div class="w-12 h-6 bg-secondary rounded-full relative flex items-center px-1">
+<div class="w-4 h-4 bg-white rounded-full absolute right-1 shadow-sm"></div>
+</div>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary font-bold py-4 rounded-full shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all">
+                Ekle
+            </button>
+</section>
+<!-- Transactions List -->
+<section class="space-y-4 pb-12">
+<div class="flex justify-between items-center">
+<h2 class="text-xl font-bold tracking-tight">Son İşlemler</h2>
+<span class="material-symbols-outlined text-on-surface-variant">keyboard_arrow_down</span>
+</div>
+<div class="bg-surface-container-low rounded-2xl overflow-hidden space-y-px">
+<!-- Item 1 -->
+<div class="bg-surface-container-lowest p-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">shopping_bag</span>
+</div>
+<div class="flex-1">
+<div class="font-bold text-sm">Market Alışverişi</div>
+<div class="text-xs text-outline font-medium">Bugün, 14:20</div>
+</div>
+<div class="font-bold text-error">- ₺840,00</div>
+</div>
+<!-- Item 2 -->
+<div class="bg-surface-container-lowest p-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">restaurant</span>
+</div>
+<div class="flex-1">
+<div class="font-bold text-sm">Öğle Yemeği</div>
+<div class="text-xs text-outline font-medium">Dün, 12:45</div>
+</div>
+<div class="font-bold text-error">- ₺320,50</div>
+</div>
+<!-- Item 3 -->
+<div class="bg-surface-container-lowest p-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container" style="font-variation-settings: 'FILL' 1;">payments</span>
+</div>
+<div class="flex-1">
+<div class="font-bold text-sm">Maaş Yatırımı</div>
+<div class="text-xs text-outline font-medium">2 gün önce</div>
+</div>
+<div class="font-bold text-secondary">+ ₺42.000,00</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Execution from JSON) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-3 pb-8 bg-[#faf9fe]/80 dark:bg-[#1a1b1f]/80 backdrop-blur-2xl z-50 rounded-t-3xl shadow-[0_-8px_24px_rgba(26,27,31,0.04)]">
+<a class="flex flex-col items-center justify-center text-primary dark:text-[#0070eb] scale-110 transition-transform tap-highlight-none active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+<span class="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">Overview</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#414755] dark:text-slate-400 opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">Accounts</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#414755] dark:text-slate-400 opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#414755] dark:text-slate-400 opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">Settings</span>
+</a>
+</nav>
+</body></html>

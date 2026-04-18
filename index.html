@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html class="light" lang="tr">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Finansal Odağım - Ethereal Ledger</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    
+    <!-- React & ReactDOM (UMD) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel for in-browser JSX parsing -->
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+              "surface-bright": "#faf9fe",
+              "on-secondary-container": "#00732a",
+              "tertiary": "#894d00",
+              "primary": "#0058bc",
+              "surface-container-lowest": "#ffffff",
+              "tertiary-fixed": "#ffdcbf",
+              "primary-container": "#0070eb",
+              "outline": "#717786",
+              "background": "#faf9fe",
+              "on-surface-variant": "#414755",
+              "surface-container-low": "#f4f3f8",
+              "surface-container-high": "#e9e7ed",
+              "on-primary": "#ffffff",
+              "surface": "#faf9fe",
+              "secondary": "#006e28",
+              "secondary-container": "#6ffb85",
+              "on-surface": "#1a1b1f",
+              "outline-variant": "#c1c6d7",
+              "error": "#ba1a1a",
+            },
+            "borderRadius": {
+              "DEFAULT": "0.25rem",
+              "lg": "0.5rem",
+              "xl": "0.75rem",
+              "full": "9999px"
+            },
+            "fontFamily": {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; min-height: max(884px, 100dvh); }
+        .glass-card { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        .tap-highlight-none { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-32">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Supabase Settings
+        const SUPABASE_URL = 'https://xzcimebxlsgjksqsawmt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6Y2ltZWJ4bHNnamtzcXNhd210Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NDE2OTEsImV4cCI6MjA5MjExNzY5MX0.wYTdW0t6Ck2riOAaL45DrNWi5_rPZylMHqpaiy7aMEA';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Icon Helper for Lucide
+        const Icon = ({ name, className = "" }) => {
+            const spanRef = useRef(null);
+            useEffect(() => {
+                if (spanRef.current) {
+                    spanRef.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
+                    window.lucide.createIcons({ root: spanRef.current, attrs: { class: className } });
+                }
+            }, [name, className]);
+            return <span ref={spanRef} style={{display: 'contents'}}></span>;
+        };
+
+        function App() {
+            const [transactions, setTransactions] = useState([]);
+            const [bakiye, setBakiye] = useState(0);
+            
+            // Form State
+            const [tutar, setTutar] = useState("");
+            const [aciklama, setAciklama] = useState("");
+            const [isHarcama, setIsHarcama] = useState(true);
+            const [tekrarli, setTekrarli] = useState(false);
+            const [loading, setLoading] = useState(false);
+
+            useEffect(() => {
+                lucide.createIcons();
+                fetchTransactions();
+            }, []);
+
+            const fetchTransactions = async () => {
+                try {
+                    const { data, error } = await supabase
+                        .from('transactions')
+                        .select('*')
+                        .order('tarih', { ascending: false });
+
+                    if (error) {
+                        console.error("Veri çekme hatası:", error);
+                        return;
+                    }
+                    
+                    if (data) {
+                        setTransactions(data);
+                        hesaplaBakiye(data);
+                    }
+                } catch (err) {
+                    console.error("Beklenmeyen hata:", err);
+                }
+            };
+
+            const hesaplaBakiye = (data) => {
+                const toplam = data.reduce((acc, curr) => {
+                    const miktar = parseFloat(curr.miktar) || 0;
+                    return curr.tip === 'gelir' ? acc + miktar : acc - miktar;
+                }, 0);
+                setBakiye(toplam);
+            };
+
+            const handleEkle = async () => {
+                if (!tutar || isNaN(parseFloat(tutar)) || !aciklama) {
+                    alert("Lütfen geçerli bir tutar ve açıklama giriniz.");
+                    return;
+                }
+
+                setLoading(true);
+                const tip = isHarcama ? 'gider' : 'gelir';
+                
+                const newTransaction = {
+                    miktar: parseFloat(tutar),
+                    aciklama: aciklama,
+                    tip: tip,
+                    tekrarli: tekrarli,
+                    tarih: new Date().toISOString()
+                };
+
+                const { error } = await supabase
+                    .from('transactions')
+                    .insert([newTransaction]);
+
+                setLoading(false);
+
+                if (error) {
+                    console.error("Ekleme hatası:", error);
+                    alert("İşlem eklenirken hata oluştu. Lütfen transactions tablosunun oluşturulduğundan emin olun.");
+                } else {
+                    setTutar("");
+                    setAciklama("");
+                    setTekrarli(false);
+                    fetchTransactions();
+                }
+            };
+
+            const formatCurrency = (amount) => {
+                return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
+            };
+
+            const formatedDateString = (isoString) => {
+                const d = new Date(isoString);
+                return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
+            };
+
+            return (
+                <main>
+                    {/* Top Navigation */}
+                    <header className="bg-[#faf9fe]/80 backdrop-blur-2xl w-full top-0 sticky z-50 flex justify-between items-end px-6 pt-12 pb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden flex items-center justify-center">
+                                <Icon name="user" className="text-on-surface-variant w-5 h-5"/>
+                            </div>
+                            <span className="text-2xl font-black tracking-tighter text-primary">Ledger</span>
+                        </div>
+                        <button className="text-slate-900 hover:opacity-70 transition-opacity active:scale-95 duration-200">
+                            <Icon name="bell" className="w-6 h-6"/>
+                        </button>
+                    </header>
+
+                    <div className="px-6 pt-8 max-w-md mx-auto space-y-10 pb-24">
+                        {/* Hero Balance Section */}
+                        <section className="space-y-1">
+                            <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">Finansal Odağım</h1>
+                            <div className="pt-4">
+                                <div className="text-[3.5rem] font-black leading-none tracking-tight text-secondary">
+                                    {formatCurrency(bakiye)}
+                                </div>
+                                <div className="text-on-surface-variant font-medium text-sm mt-2 flex items-center gap-1">
+                                    Mevcut Net Bakiye
+                                    <Icon name="info" className="w-3 h-3 ml-1" />
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Alert Card */}
+                        <section>
+                            <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] flex items-center gap-4 group active:scale-95 transition-transform duration-200 cursor-pointer">
+                                <div className="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center">
+                                    <Icon name="alert-circle" className="text-tertiary w-5 h-5" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="font-bold text-on-surface">Yaklaşan Ödeme: Kira</div>
+                                    <div className="text-on-surface-variant text-sm">Yarın • ₺15.000,00</div>
+                                </div>
+                                <Icon name="chevron-right" className="text-outline-variant w-5 h-5"/>
+                            </div>
+                        </section>
+
+                        {/* AI Insights Section */}
+                        <section>
+                            <div className="relative overflow-hidden bg-primary/5 rounded-2xl p-5 border border-primary/10">
+                                <div className="flex gap-3 items-start">
+                                    <div className="bg-primary text-on-primary p-2 rounded-lg">
+                                        <Icon name="bot" className="w-5 h-5"/>
+                                    </div>
+                                    <p className="text-primary font-medium text-[15px] leading-relaxed">
+                                        Bu ay dışarıda yeme harcamanız hedefin <span className="font-bold underline">%20 üzerinde.</span> Dikkatli olmanızı öneririm.
+                                    </p>
+                                </div>
+                                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-primary/10 blur-3xl rounded-full"></div>
+                            </div>
+                        </section>
+
+                        {/* Quick Transaction Form */}
+                        <section className="space-y-4">
+                            <h2 className="font-['Inter'] text-[11px] font-bold tracking-widest text-on-surface-variant uppercase pl-1">HIZLI İŞLEM EKLE</h2>
+                            <div className="bg-surface-container-low rounded-2xl p-1 space-y-px">
+                                
+                                {/* Segmented Control */}
+                                <div className="bg-surface-container-lowest p-4 rounded-t-xl">
+                                    <div className="flex bg-surface-container-high p-1 rounded-full relative">
+                                        <button 
+                                            onClick={() => setIsHarcama(true)} 
+                                            className={`flex-1 py-2 text-sm font-bold rounded-full transition-all z-10 ${isHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
+                                        >
+                                            Harcama
+                                        </button>
+                                        <button 
+                                            onClick={() => setIsHarcama(false)} 
+                                            className={`flex-1 py-2 text-sm font-bold rounded-full transition-all z-10 ${!isHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
+                                        >
+                                            Gelir
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Amount Row */}
+                                <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
+                                    <span className="text-on-surface-variant font-medium">Tutar (₺)</span>
+                                    <input 
+                                        type="number" 
+                                        value={tutar} 
+                                        onChange={(e) => setTutar(e.target.value)} 
+                                        className="text-right font-bold text-xl text-primary bg-transparent border-none focus:ring-0 p-0 placeholder:text-outline-variant w-1/2" 
+                                        placeholder="0.00" 
+                                    />
+                                </div>
+                                
+                                {/* Description Row */}
+                                <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
+                                    <span className="text-on-surface-variant font-medium">Açıklama</span>
+                                    <input 
+                                        type="text" 
+                                        value={aciklama} 
+                                        onChange={(e) => setAciklama(e.target.value)} 
+                                        className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 placeholder:text-outline-variant w-1/2" 
+                                        placeholder="örn: Kahve" 
+                                    />
+                                </div>
+                                
+                                {/* Switch Row */}
+                                <div className="bg-surface-container-lowest p-4 rounded-b-xl flex justify-between items-center">
+                                    <span className="text-on-surface-variant font-medium">Tekrarlı Ödeme</span>
+                                    
+                                    <button 
+                                        type="button"
+                                        onClick={() => setTekrarli(!tekrarli)}
+                                        className={`w-12 h-6 rounded-full relative flex items-center px-1 transition-colors duration-300 ${tekrarli ? 'bg-secondary' : 'bg-surface-container-high'}`}
+                                    >
+                                        <div className={`w-4 h-4 bg-white rounded-full absolute shadow-sm transition-transform duration-300 ${tekrarli ? 'right-1' : 'left-1'}`}></div>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <button 
+                                onClick={handleEkle} 
+                                disabled={loading}
+                                className="w-full bg-primary text-on-primary font-bold py-4 rounded-full shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {loading ? <Icon name="loader-2" className="animate-spin w-5 h-5"/> : <Icon name="plus" className="w-5 h-5"/>}
+                                {loading ? "Ekleniyor..." : "Ekle"}
+                            </button>
+                        </section>
+
+                        {/* Transactions List */}
+                        <section className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-bold tracking-tight">Son İşlemler</h2>
+                                <Icon name="chevron-down" className="text-on-surface-variant w-5 h-5"/>
+                            </div>
+                            <div className="bg-surface-container-low rounded-2xl overflow-hidden space-y-px">
+                                {transactions.length === 0 ? (
+                                    <div className="bg-surface-container-lowest p-8 text-center text-on-surface-variant text-sm">
+                                        Henüz bir işlem bulunmuyor.
+                                    </div>
+                                ) : (
+                                    transactions.map(item => (
+                                        <div key={item.id} className="bg-surface-container-lowest p-4 flex items-center gap-4">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.tip === 'gelir' ? 'bg-secondary-container' : 'bg-surface-container-high'}`}>
+                                                {item.tip === 'gelir' 
+                                                    ? <Icon name="arrow-down-to-line" className="text-on-secondary-container w-5 h-5"/> 
+                                                    : <Icon name="shopping-bag" className="text-on-surface-variant w-5 h-5"/>
+                                                }
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-bold text-sm">{item.aciklama} {item.tekrarli && <Icon name="repeat" className="inline w-3 h-3 ml-1 text-primary"/>}</div>
+                                                <div className="text-xs text-outline font-medium">{formatedDateString(item.tarih)}</div>
+                                            </div>
+                                            <div className={`font-bold ${item.tip === 'gelir' ? 'text-secondary' : 'text-error'}`}>
+                                                {item.tip === 'gelir' ? '+' : '-'} {formatCurrency(item.miktar)}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </section>
+                    </div>
+
+                    {/* BottomNavBar */}
+                    <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-3 pb-8 bg-[#faf9fe]/80 backdrop-blur-2xl z-50 rounded-t-3xl shadow-[0_-8px_24px_rgba(26,27,31,0.04)]">
+                        <a className="flex flex-col items-center justify-center text-primary scale-110 transition-transform tap-highlight-none active:scale-90 duration-300" href="#">
+                            <Icon name="wallet" className="w-6 h-6"/>
+                            <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">Overview</span>
+                        </a>
+                        <a className="flex flex-col items-center justify-center text-[#414755] opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300" href="#">
+                            <Icon name="credit-card" className="w-6 h-6"/>
+                            <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">Accounts</span>
+                        </a>
+                        <a className="flex flex-col items-center justify-center text-[#414755] opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300" href="#">
+                            <Icon name="bar-chart-2" className="w-6 h-6"/>
+                            <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">Insights</span>
+                        </a>
+                        <a className="flex flex-col items-center justify-center text-[#414755] opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300" href="#">
+                            <Icon name="settings" className="w-6 h-6"/>
+                            <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">Settings</span>
+                        </a>
+                    </nav>
+                </main>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
