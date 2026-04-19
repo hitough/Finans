@@ -21,6 +21,9 @@
     <!-- Supabase Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -93,6 +96,101 @@
             }, [name, className]);
             return <span ref={spanRef} style={{display: 'contents'}}></span>;
         };
+
+        // PieChart Component
+        function PieChart({ title, dataMap, colors }) {
+            const canvasRef = useRef(null);
+            const chartInstance = useRef(null);
+            const dataHash = JSON.stringify(dataMap);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                
+                const labels = Object.keys(dataMap);
+                const data = Object.values(dataMap);
+
+                if (chartInstance.current) {
+                    chartInstance.current.destroy();
+                }
+
+                if (data.length === 0) return;
+
+                chartInstance.current = new window.Chart(canvasRef.current, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: colors,
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 20,
+                                    usePointStyle: true,
+                                    pointStyle: 'circle',
+                                    color: '#414755',
+                                    font: { family: 'Inter', size: 12, weight: '500' }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                        chartInstance.current = null;
+                    }
+                };
+            }, [dataHash, colors]);
+
+            if (Object.keys(dataMap).length === 0) return null;
+
+            return (
+                <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] mb-4">
+                    <h3 className="font-bold tracking-tight text-on-surface mb-2">{title}</h3>
+                    <div className="relative h-64 w-full flex items-center justify-center">
+                        <canvas ref={canvasRef}></canvas>
+                    </div>
+                </div>
+            );
+        }
+
+        function CategoryCharts({ transactions }) {
+            const giderKat = {};
+            const gelirKat = {};
+
+            transactions.forEach(t => {
+                const m = parseFloat(t.miktar) || 0;
+                const kat = t.kategori || "Diğer";
+                if (t.tip === 'gider') giderKat[kat] = (giderKat[kat] || 0) + m;
+                else gelirKat[kat] = (gelirKat[kat] || 0) + m;
+            });
+
+            // Gider colors
+            const giderColors = ['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec4899', '#f43f5e', '#84cc16', '#d946ef'];
+            // Gelir colors
+            const gelirColors = ['#10b981', '#3b82f6', '#14b8a6', '#0ea5e9', '#6366f1', '#06b6d4', '#8b5cf6', '#22c55e'];
+
+            if (Object.keys(giderKat).length === 0 && Object.keys(gelirKat).length === 0) return null;
+
+            return (
+                <section className="space-y-4 pt-2">
+                    <h2 className="font-['Inter'] text-[11px] font-bold tracking-widest text-on-surface-variant uppercase pl-1">Kategori Analizi</h2>
+                    <PieChart title="Harcama Dağılımı" dataMap={giderKat} colors={giderColors} />
+                    <PieChart title="Gelir Dağılımı" dataMap={gelirKat} colors={gelirColors} />
+                </section>
+            );
+        }
 
         function Auth({ supabase }) {
             const [loading, setLoading] = useState(false);
@@ -233,6 +331,7 @@
             const [editTarih, setEditTarih] = useState("");
             const [editKategori, setEditKategori] = useState("");
             const [editLoading, setEditLoading] = useState(false);
+            const [showAllPast, setShowAllPast] = useState(false);
 
             useEffect(() => {
                 lucide.createIcons();
@@ -714,7 +813,9 @@
                         <section className="space-y-4">
                             <div className="flex justify-between items-center">
                                 <h2 className="text-xl font-bold tracking-tight">Son İşlemler</h2>
-                                <Icon name="chevron-down" className="text-on-surface-variant w-5 h-5"/>
+                                <button onClick={() => setShowAllPast(!showAllPast)} className="p-2 -mr-2 hover:bg-surface-container-high rounded-full transition-colors active:scale-95 flex items-center justify-center">
+                                    <Icon name={showAllPast ? "chevron-up" : "chevron-down"} className="text-on-surface-variant w-5 h-5"/>
+                                </button>
                             </div>
                             <div className="bg-surface-container-low rounded-2xl overflow-hidden space-y-px">
                                 {pastTransactions.length === 0 ? (
@@ -722,7 +823,7 @@
                                         Henüz bir geçmiş işlem bulunmuyor.
                                     </div>
                                 ) : (
-                                    pastTransactions.map(item => (
+                                    (showAllPast ? pastTransactions : pastTransactions.slice(0, 3)).map(item => (
                                         <div key={item.id} className="bg-surface-container-lowest p-4 flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.tip === 'gelir' ? 'bg-secondary-container' : 'bg-surface-container-high'}`}>
                                                 {item.tip === 'gelir' 
@@ -756,8 +857,16 @@
                                         </div>
                                     ))
                                 )}
+                                {!showAllPast && pastTransactions.length > 3 && (
+                                    <button onClick={() => setShowAllPast(true)} className="w-full relative bg-surface-container-lowest py-3 text-sm font-bold text-primary transition-colors hover:bg-surface-container-high active:scale-[0.99]">
+                                        Tümünü Gör ({pastTransactions.length})
+                                    </button>
+                                )}
                             </div>
                         </section>
+
+                        {/* Charts Section */}
+                        <CategoryCharts transactions={transactions} />
                     </div>
 
                     {/* BottomNavBar */}
