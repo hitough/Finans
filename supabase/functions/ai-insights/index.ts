@@ -54,7 +54,7 @@ En çok harcama yapılan kategoriler: ${kategoriOzeti || 'Henüz kategori verisi
 
 Senden istenen: SADECE 1 veya en fazla 2 cümlelik, samimi, motive edici ve tamamen finansal durumuna özel nokta atışı bir içgörü, uyarı veya tavsiye mesajı üret. (Örn: "Dışarıda yemeye epey bütçe harcamışsınız, biraz mutfağa dönme vakti!" veya "Giderleriniz gelirinizi aşıyor, tasarruf yapmayı ihmal etmeyin." gibi). Metin dışında fazladan hiçbir merhabalaşma, emoji, işaret veya açıklama ekleme. Sadece tavsiyeyi ver.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
