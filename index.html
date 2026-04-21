@@ -111,6 +111,10 @@
             return <span ref={spanRef} style={{ display: 'contents' }}></span>;
         };
 
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
+        };
+
         // PieChart Component
         function PieChart({ title, dataMap, colors }) {
             const canvasRef = useRef(null);
@@ -169,11 +173,17 @@
 
             if (Object.keys(dataMap).length === 0) return null;
 
+            const total = Object.values(dataMap).reduce((a, b) => a + b, 0);
+
             return (
                 <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] mb-4">
                     <h3 className="font-bold tracking-tight text-on-surface mb-2">{title}</h3>
                     <div className="relative h-64 w-full flex items-center justify-center">
                         <canvas ref={canvasRef}></canvas>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-[-20px]">
+                            <span className="text-[10px] font-bold text-on-surface-variant uppercase opacity-60">Toplam</span>
+                            <span className="text-sm font-black text-on-surface">{formatCurrency(total)}</span>
+                        </div>
                     </div>
                 </div>
             );
@@ -350,6 +360,8 @@
             // AI States
             const [aiInsight, setAiInsight] = useState("");
             const [insightLoading, setInsightLoading] = useState(false);
+            const [showNotifications, setShowNotifications] = useState(false);
+            const [notificationPermission, setNotificationPermission] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default');
 
                 const fetchAiInsight = async () => {
                     setInsightLoading(true);
@@ -436,6 +448,7 @@
                     if (data) {
                         setTransactions(data);
                         hesaplaBakiye(data);
+                        checkAndNotifyUpcoming(data);
                     }
                 } catch (err) {
                     console.error("Beklenmeyen hata:", err);
@@ -448,6 +461,51 @@
                     return curr.tip === 'gelir' ? acc + miktar : acc - miktar;
                 }, 0);
                 setBakiye(toplam);
+            };
+
+            const requestNotificationPermission = async () => {
+                if (typeof Notification === 'undefined') return;
+                const permission = await Notification.requestPermission();
+                setNotificationPermission(permission);
+                if (permission === 'granted') {
+                    new Notification("Finans", { 
+                        body: "Ödeme bildirimleri başarıyla etkinleştirildi! 🔔",
+                    });
+                }
+            };
+
+            const checkAndNotifyUpcoming = (data) => {
+                if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+                
+                const now = new Date();
+                const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+                
+                const todayKey = `notified_${now.toISOString().split('T')[0]}`;
+                let notifiedIds = [];
+                try {
+                    notifiedIds = JSON.parse(localStorage.getItem(todayKey) || "[]");
+                } catch(e) { notifiedIds = []; }
+                
+                let newlyNotified = false;
+
+                data.forEach(t => {
+                    const txDate = new Date(t.tarih);
+                    // Proactive check: expense, in the future, within 24 hours, and not already notified today
+                    if (t.tip === 'gider' && txDate > now && txDate <= tomorrow) {
+                        if (!notifiedIds.includes(t.id)) {
+                            new Notification("Yaklaşan Ödeme Hatırlatıcısı", {
+                                body: `${t.aciklama} - ${formatCurrency(t.miktar)} tutarındaki ödemeniz yaklaşıyor.`,
+                                tag: t.id // Prevents multiple notifications for same tx if app reloads
+                            });
+                            notifiedIds.push(t.id);
+                            newlyNotified = true;
+                        }
+                    }
+                });
+
+                if (newlyNotified) {
+                    localStorage.setItem(todayKey, JSON.stringify(notifiedIds));
+                }
             };
 
             const handleAddCategory = async () => {
@@ -565,9 +623,7 @@
                 }
             };
 
-            const formatCurrency = (amount) => {
-                return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
-            };
+
 
             const formatedDateString = (isoString) => {
                 const d = new Date(isoString);
@@ -577,12 +633,68 @@
             const now = new Date();
             const upcomingTransactions = transactions
                 .filter(t => new Date(t.tarih) > now && t.tip === 'gider')
-                .sort((a, b) => new Date(a.tarih) - new Date(b.tarih));
+                .sort((a, b) => new Date(a.tarih) - new Date(b.tarih))
+                .slice(0, 3);
 
             const pastTransactions = transactions.filter(t => new Date(t.tarih) <= now);
+            const allUpcoming = transactions
+                .filter(t => new Date(t.tarih) > now)
+                .sort((a, b) => new Date(a.tarih) - new Date(b.tarih));
 
             return (
                 <main>
+                    {/* Notifications Modal (All Upcoming) */}
+                    {showNotifications && (
+                        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
+                                <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+                                    <h3 className="font-bold text-lg">Tüm Yaklaşan İşlemler</h3>
+                                    <button onClick={() => setShowNotifications(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+                                        <Icon name="x" className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <div className="overflow-y-auto p-4 flex-1">
+                                    {notificationPermission !== 'granted' && (
+                                        <div className="mb-6 p-4 bg-primary/10 rounded-xl border border-primary/20 text-center">
+                                            <Icon name="bell-ring" className="w-8 h-8 text-primary mx-auto mb-2 opacity-80" />
+                                            <h4 className="font-bold text-primary text-sm mb-1">Bildirimler Kapalı</h4>
+                                            <p className="text-on-surface-variant text-[11px] mb-3">Yaklaşan ödemelerden anında haberdar olmak için bildirimleri açın.</p>
+                                            <button 
+                                                onClick={requestNotificationPermission}
+                                                className="w-full bg-primary text-on-primary font-bold py-2 rounded-lg text-xs shadow-md active:scale-95 transition-transform"
+                                            >
+                                                Şimdi Etkinleştir
+                                            </button>
+                                        </div>
+                                    )}
+                                    {allUpcoming.length === 0 ? (
+                                        <div className="text-center text-sm text-on-surface-variant py-8">
+                                            <Icon name="calendar" className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                                            Yaklaşan bir işlem bulunmuyor.
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {allUpcoming.map(t => (
+                                                <div key={`notif-${t.id}`} className="flex items-center gap-4 p-3 bg-surface-container-low rounded-xl cursor-pointer active:scale-[0.98] transition-transform" onClick={() => { setShowNotifications(false); openEditModal(t); }}>
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${t.tip === 'gelir' ? 'bg-secondary-container text-on-secondary-container' : 'bg-tertiary-fixed text-tertiary'}`}>
+                                                        <Icon name={t.tip === 'gelir' ? 'arrow-down-to-line' : 'alert-circle'} className="w-5 h-5" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="font-bold text-on-surface truncate text-sm">{t.aciklama}</div>
+                                                        <div className="text-on-surface-variant text-xs">{formatedDateString(t.tarih)}</div>
+                                                    </div>
+                                                    <div className={`font-bold text-sm ${t.tip === 'gelir' ? 'text-secondary' : 'text-error'}`}>
+                                                        {t.tip === 'gelir' ? '+' : '-'} {formatCurrency(t.miktar)}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Category Manager Modal */}
                     {showCategoryManager && (
                         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
@@ -697,8 +809,16 @@
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
-                            <button className="text-slate-900 hover:opacity-70 transition-opacity active:scale-95 duration-200">
+                            <button 
+                                onClick={() => setShowNotifications(true)}
+                                className="text-slate-900 hover:opacity-70 transition-opacity active:scale-95 duration-200 relative"
+                            >
                                 <Icon name="bell" className="w-6 h-6" />
+                                {transactions.filter(t => new Date(t.tarih) > now).length > 0 && (
+                                    <span className="absolute -top-1 -right-1 bg-error text-on-primary text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                                        {transactions.filter(t => new Date(t.tarih) > now).length}
+                                    </span>
+                                )}
                             </button>
                             <button
                                 onClick={() => supabase.auth.signOut()}
