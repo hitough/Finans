@@ -11,29 +11,27 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  // supabase/functions/ai-insights/index.ts
-
   try {
     const rawBody = await req.json().catch(() => null);
     
-    // Debug log (Supabase Dashboard Logs'da görünecek)
+    // Debug log
     console.log("Sunucuya ulaşan ham veri:", JSON.stringify(rawBody));
 
-    // Veriyi ayıkla (summaryData yoksa root objeyi kullan)
+    // Veriyi ayıkla
     const summaryData = rawBody?.summaryData || rawBody;
 
     if (!summaryData || (summaryData.mevcutBakiye === undefined && summaryData.totalGelir === undefined)) {
        return new Response(
-         JSON.stringify({ error: "Analiz için gerekli finansal veriler (bakiye vb.) sunucuya ulaşmadı." }), 
+         JSON.stringify({ error: "Analiz için gerekli finansal veriler sunucuya ulaşmadı." }), 
          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
        );
     }
 
-    // Retrieve Gemini API Key from environment variable
-    const API_KEY = Deno.env.get('GEMINI_API_KEY')
+    // Retrieve Groq API Key
+    const API_KEY = Deno.env.get('GROQ_API_KEY')
 
     if (!API_KEY) {
-      throw new Error('GEMINI_API_KEY bulunamadı. Lütfen Supabase sırlarına ekleyin.')
+      throw new Error('GROQ_API_KEY bulunamadı. Lütfen Supabase sırlarına ekleyin.')
     }
 
     const totalGelir = summaryData.totalGelir || 0;
@@ -52,29 +50,34 @@ Son İşlemlerdeki Toplam Gelir: ${totalGelir} TL
 Son İşlemlerdeki Toplam Gider: ${totalGider} TL
 En çok harcama yapılan kategoriler: ${kategoriOzeti || 'Henüz kategori verisi yok.'}
 
-Senden istenen: SADECE 1 veya en fazla 2 cümlelik, samimi, motive edici ve tamamen finansal durumuna özel nokta atışı bir içgörü, uyarı veya tavsiye mesajı üret. (Örn: "Dışarıda yemeye epey bütçe harcamışsınız, biraz mutfağa dönme vakti!" veya "Giderleriniz gelirinizi aşıyor, tasarruf yapmayı ihmal etmeyin." gibi). Metin dışında fazladan hiçbir merhabalaşma, emoji, işaret veya açıklama ekleme. Sadece tavsiyeyi ver.`;
+Senden istenen: SADECE 1 veya en fazla 2 cümlelik, samimi, motive edici ve tamamen finansal durumuna özel nokta atışı bir içgörü, uyarı veya tavsiye mesajı üret. Metin dışında fazladan hiçbir merhabalaşma, emoji, işaret veya açıklama ekleme. Sadece tavsiyeyi ver.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }]
+        model: "llama-3.1-8b-instant",
+        messages: [
+          { role: "system", content: "Sen özlü ve etkili tavsiyeler veren bir finans danışmanısın." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 150
       })
     })
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error?.message || "Gemini servisine ulaşılamadı.";
-      console.error('Gemini API Error Detail:', errorData);
+      const errorMessage = errorData.error?.message || "Groq servisine ulaşılamadı.";
+      console.error('Groq API Error Detail:', errorData);
       throw new Error(errorMessage);
     }
 
     const data = await response.json()
-    const aiMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mali durumunuzu şu an analiz edemedim."
+    const aiMessage = data.choices?.[0]?.message?.content || "Mali durumunuzu şu an analiz edemedim."
 
     return new Response(
       JSON.stringify({ insight: aiMessage.trim() }),
