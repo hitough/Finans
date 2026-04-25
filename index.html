@@ -611,7 +611,8 @@
                     tekrarli: tekrarli,
                     tarih: dt.toISOString(),
                     kategori: secilenKategori,
-                    user_id: session.user.id
+                    user_id: session.user.id,
+                    tamamlandi: false
                 };
 
                 const { error } = await supabase
@@ -684,6 +685,14 @@
                         .eq('id', id);
                     if (!error) fetchTransactions();
                 }
+            };
+
+            const handleToggleComplete = async (item) => {
+                const { error } = await supabase
+                    .from('transactions')
+                    .update({ tamamlandi: !item.tamamlandi })
+                    .eq('id', item.id);
+                if (!error) fetchTransactions();
             };
 
 
@@ -1256,15 +1265,20 @@
                                     else timeText = `${diffDays} gün sonra`;
 
                                     return (
-                                        <div key={`upcoming-${t.id}`} className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] flex items-center gap-4 group active:scale-[0.98] transition-transform duration-200 cursor-pointer" onClick={() => openEditModal(t)}>
-                                            <div className="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center shrink-0">
-                                                <Icon name="alert-circle" className="text-tertiary w-5 h-5" />
+                                        <div key={`upcoming-${t.id}`} className={`bg-surface-container-lowest p-4 rounded-xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] flex items-center gap-4 group active:scale-[0.98] transition-all duration-200 cursor-pointer ${t.tamamlandi ? 'opacity-50' : ''}`}>
+                                            <div onClick={() => handleToggleComplete(t)} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${t.tamamlandi ? 'bg-secondary text-on-primary' : 'bg-tertiary-fixed text-tertiary'}`}>
+                                                <Icon name={t.tamamlandi ? "check" : "alert-circle"} className="w-5 h-5" />
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-bold text-on-surface truncate">{t.aciklama}</div>
+                                            <div className="flex-1 min-w-0" onClick={() => openEditModal(t)}>
+                                                <div className={`font-bold text-on-surface truncate ${t.tamamlandi ? 'line-through' : ''}`}>{t.aciklama}</div>
                                                 <div className="text-on-surface-variant text-sm">{timeText} • {formatCurrency(t.miktar)}</div>
                                             </div>
-                                            <Icon name="chevron-right" className="text-outline-variant w-5 h-5" />
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleToggleComplete(t)} className={`p-2 rounded-lg transition-colors ${t.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title="Tamamla">
+                                                    <Icon name="check-circle-2" className="w-5 h-5" />
+                                                </button>
+                                                <Icon name="chevron-right" className="text-outline-variant w-5 h-5 self-center" />
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -1321,15 +1335,18 @@
                                     </div>
                                 ) : (
                                     (showAllPast ? transactions : transactions.slice(0, 3)).map(item => (
-                                        <div key={item.id} onClick={() => openEditModal(item)} className="bg-surface-container-lowest p-4 flex items-center gap-3 cursor-pointer hover:bg-surface-container-low transition-colors group">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.tip === 'gelir' ? 'bg-secondary-container' : 'bg-surface-container-high'}`}>
-                                                {item.tip === 'gelir'
-                                                    ? <Icon name="arrow-down-to-line" className="text-on-secondary-container w-5 h-5" />
-                                                    : <Icon name="shopping-bag" className="text-on-surface-variant w-5 h-5" />
+                                        <div key={item.id} className={`bg-surface-container-lowest p-4 flex items-center gap-3 cursor-pointer hover:bg-surface-container-low transition-colors group ${item.tamamlandi ? 'opacity-50' : ''}`}>
+                                            <div onClick={() => handleToggleComplete(item)} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.tamamlandi ? 'bg-secondary text-on-primary' : (item.tip === 'gelir' ? 'bg-secondary-container' : 'bg-surface-container-high')}`}>
+                                                {item.tamamlandi 
+                                                    ? <Icon name="check" className="w-5 h-5" />
+                                                    : (item.tip === 'gelir'
+                                                        ? <Icon name="arrow-down-to-line" className="text-on-secondary-container w-5 h-5" />
+                                                        : <Icon name="shopping-bag" className="text-on-surface-variant w-5 h-5" />
+                                                    )
                                                 }
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-bold text-sm flex items-center flex-wrap gap-x-2 gap-y-1">
+                                            <div className="flex-1 min-w-0" onClick={() => openEditModal(item)}>
+                                                <div className={`font-bold text-sm flex items-center flex-wrap gap-x-2 gap-y-1 ${item.tamamlandi ? 'line-through text-on-surface-variant' : ''}`}>
                                                     <span className="truncate max-w-full">{item.aciklama}</span>
                                                     {item.kategori && <span className="text-[10px] px-2 py-0.5 bg-outline-variant/30 text-on-surface-variant rounded-full font-medium whitespace-nowrap">{item.kategori}</span>}
                                                     {item.tekrarli && <Icon name="repeat" className="inline w-3 h-3 text-primary shrink-0" />}
@@ -1339,14 +1356,17 @@
                                                 </div>
                                             </div>
                                             <div className="text-right flex flex-col items-end gap-1">
-                                                <div className={`font-bold ${item.tip === 'gelir' ? 'text-secondary' : 'text-error'}`}>
+                                                <div className={`font-bold ${item.tamamlandi ? 'line-through text-on-surface-variant' : (item.tip === 'gelir' ? 'text-secondary' : 'text-error')}`}>
                                                     {item.tip === 'gelir' ? '+' : '-'} {formatCurrency(item.miktar)}
                                                 </div>
                                                 <div className="flex gap-1 items-center">
+                                                    <button onClick={() => handleToggleComplete(item)} className={`p-1.5 rounded-lg transition-colors active:scale-95 ${item.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title="Tamamla">
+                                                        <Icon name="check-circle-2" className="w-3 h-3" />
+                                                    </button>
                                                     <button onClick={() => openEditModal(item)} className="p-1.5 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-low rounded-lg active:scale-95" title="Düzenle">
                                                         <Icon name="pencil" className="w-3 h-3" />
                                                     </button>
-                                                    <button onClick={() => handleDeleteTx(item.id)} className="p-1.5 text-on-surface-variant hover:text-error transition-colors bg-surface-container-low rounded-lg active:scale-95" title="Sil">
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteTx(item.id); }} className="p-1.5 text-on-surface-variant hover:text-error transition-colors bg-surface-container-low rounded-lg active:scale-95" title="Sil">
                                                         <Icon name="trash-2" className="w-3 h-3" />
                                                     </button>
                                                 </div>
