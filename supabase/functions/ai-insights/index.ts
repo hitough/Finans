@@ -21,6 +21,7 @@ serve(async (req) => {
     const summaryData = rawBody?.summaryData || rawBody;
 
     if (!summaryData) {
+       console.error("Hata: summaryData boş.");
        return new Response(
          JSON.stringify({ error: "Analiz için veri sunucuya ulaşmadı." }), 
          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

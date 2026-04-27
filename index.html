@@ -459,7 +459,8 @@
                             raporDonemi: mode === 'report' ? reportMonth : 'current',
                             totalGelir,
                             totalGider,
-                            giderKategoriler: giderKat
+                            giderKategoriler: giderKat,
+                            mevcutBakiye: bakiye
                         };
 
                         const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-insights`, {
@@ -1353,7 +1354,7 @@
                     <header className="bg-[#faf9fe]/80 backdrop-blur-2xl w-full top-0 sticky z-50 flex justify-between items-end px-6 pt-12 pb-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 flex items-center justify-center">
-                                <img src="UX design/logo/Logo.png" alt="Logo" className="w-full h-full object-contain" />
+                                <img src="UX Design/Logo/FinansLogo.png" alt="Logo" className="w-full h-full object-contain" />
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-xl font-black tracking-tighter text-primary leading-tight">Finans</span>
