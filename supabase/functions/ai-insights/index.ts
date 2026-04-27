@@ -20,9 +20,9 @@ serve(async (req) => {
     // Veriyi ayıkla
     const summaryData = rawBody?.summaryData || rawBody;
 
-    if (!summaryData || (summaryData.mevcutBakiye === undefined && summaryData.totalGelir === undefined)) {
+    if (!summaryData) {
        return new Response(
-         JSON.stringify({ error: "Analiz için gerekli finansal veriler sunucuya ulaşmadı." }), 
+         JSON.stringify({ error: "Analiz için veri sunucuya ulaşmadı." }), 
          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
        );
     }
@@ -34,23 +34,35 @@ serve(async (req) => {
       throw new Error('GROQ_API_KEY bulunamadı. Lütfen Supabase sırlarına ekleyin.')
     }
 
-    const totalGelir = summaryData.totalGelir || 0;
-    const totalGider = summaryData.totalGider || 0;
+    const mode = summaryData.mode || 'general';
+    let prompt = "";
 
-    let kategoriOzeti = "";
-    if (summaryData.giderKategoriler && Object.keys(summaryData.giderKategoriler).length > 0) {
-      kategoriOzeti = Object.entries(summaryData.giderKategoriler)
-        .map(([k, v]) => `${k}: ${v} TL`)
-        .join(', ');
-    }
+    if (mode === 'statement') {
+      prompt = `Sen profesyonel bir finansal analistsin. Aşağıda bir kredi kartı ekstresinden çıkarılmış metin bulunmaktadır:
+${summaryData.statementText}
 
-    const prompt = `Şu an yaratıcı bir kişisel finans danışmanısın. Kullanıcının güncel finansal özeti şöyledir:
+Lütfen bu veriyi analiz et ve:
+1. En büyük 3 harcamayı belirt.
+2. Harcama alışkanlıkları hakkında kısa bir yorum yap.
+3. Bir tasarruf önerisi ver.
+Cevabın özlü ve samimi olsun. Metin dışında emoji veya işaret ekleme.`;
+    } else {
+      const totalGelir = summaryData.totalGelir || 0;
+      const totalGider = summaryData.totalGider || 0;
+      let kategoriOzeti = "";
+      if (summaryData.giderKategoriler && Object.keys(summaryData.giderKategoriler).length > 0) {
+        kategoriOzeti = Object.entries(summaryData.giderKategoriler)
+          .map(([k, v]) => `${k}: ${v} TL`)
+          .join(', ');
+      }
+      prompt = `Şu an yaratıcı bir kişisel finans danışmanısın. Kullanıcının güncel finansal özeti şöyledir:
 Toplam Net Mevcut Bakiye: ${summaryData.mevcutBakiye} TL
 Son İşlemlerdeki Toplam Gelir: ${totalGelir} TL
 Son İşlemlerdeki Toplam Gider: ${totalGider} TL
 En çok harcama yapılan kategoriler: ${kategoriOzeti || 'Henüz kategori verisi yok.'}
 
 Senden istenen: SADECE 1 veya en fazla 2 cümlelik, samimi, motive edici ve tamamen finansal durumuna özel nokta atışı bir içgörü, uyarı veya tavsiye mesajı üret. Metin dışında fazladan hiçbir merhabalaşma, emoji, işaret veya açıklama ekleme. Sadece tavsiyeyi ver.`;
+    }
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -65,7 +77,7 @@ Senden istenen: SADECE 1 veya en fazla 2 cümlelik, samimi, motive edici ve tama
           { role: "user", content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 150
+        max_tokens: 300
       })
     })
 
