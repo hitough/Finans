@@ -84,6 +84,23 @@
             font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
             min-height: max(884px, 100dvh);
+            position: relative;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('UX Design/background.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            opacity: 0.25;
+            z-index: -1;
         }
 
         .glass-card {
