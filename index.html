@@ -203,7 +203,7 @@
             );
         }
 
-        function CategoryCharts({ transactions }) {
+        function CategoryCharts({ transactions, t, language }) {
             const giderKat = {};
 
             transactions.forEach(t => {
@@ -1838,7 +1838,7 @@
                         </section>
 
                         {/* Charts Section */}
-                        <CategoryCharts transactions={transactions} />
+                        <CategoryCharts transactions={transactions} t={t} language={language} />
                     </div>
 
                     {/* BottomNavBar */}
