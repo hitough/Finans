@@ -220,6 +220,8 @@
             );
         }
 
+        const GIDER_COLORS = ['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec4899', '#f43f5e', '#84cc16', '#d946ef'];
+
         function CategoryCharts({ transactions, t, language }) {
             const giderKat = {};
 
@@ -229,15 +231,12 @@
                 if (t.tip === 'gider') giderKat[kat] = (giderKat[kat] || 0) + m;
             });
 
-            // Gider colors
-            const giderColors = ['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec4899', '#f43f5e', '#84cc16', '#d946ef'];
-
             if (Object.keys(giderKat).length === 0) return null;
 
             return (
                 <section className="space-y-4 pt-2">
                     <h2 className="font-['Inter'] text-[11px] font-bold tracking-widest text-on-surface-variant uppercase pl-1">{t('kategori_analizi')}</h2>
-                    <PieChart title={t('harcama_dagilimi')} dataMap={giderKat} colors={giderColors} totalLabel={t('toplam')} language={language} />
+                    <PieChart title={t('harcama_dagilimi')} dataMap={giderKat} colors={GIDER_COLORS} totalLabel={t('toplam')} language={language} />
                 </section>
             );
         }
