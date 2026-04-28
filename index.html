@@ -120,8 +120,8 @@
             return <span ref={spanRef} style={{ display: 'contents' }}></span>;
         };
 
-        const formatCurrency = (amount, decimals = 2) => {
-            return new Intl.NumberFormat('tr-TR', { 
+        const formatCurrency = (amount, decimals = 2, language = 'tr') => {
+            return new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-US', { 
                 style: 'currency', 
                 currency: 'TRY',
                 minimumFractionDigits: decimals,
@@ -130,7 +130,7 @@
         };
 
         // PieChart Component
-        function PieChart({ title, dataMap, colors }) {
+        function PieChart({ title, dataMap, colors, totalLabel = "Toplam", language = 'tr' }) {
             const canvasRef = useRef(null);
             const chartInstance = useRef(null);
             const dataHash = JSON.stringify(dataMap);
@@ -195,8 +195,8 @@
                     <div className="relative h-64 w-full flex items-center justify-center">
                         <canvas ref={canvasRef}></canvas>
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-[-20px]">
-                            <span className="text-[10px] font-bold text-on-surface-variant uppercase opacity-60">Toplam</span>
-                            <span className="text-sm font-black text-on-surface">{formatCurrency(total)}</span>
+                            <span className="text-[10px] font-bold text-on-surface-variant uppercase opacity-60">{totalLabel}</span>
+                            <span className="text-sm font-black text-on-surface">{formatCurrency(total, 0, language)}</span>
                         </div>
                     </div>
                 </div>
@@ -219,8 +219,8 @@
 
             return (
                 <section className="space-y-4 pt-2">
-                    <h2 className="font-['Inter'] text-[11px] font-bold tracking-widest text-on-surface-variant uppercase pl-1">Kategori Analizi</h2>
-                    <PieChart title="Harcama Dağılımı" dataMap={giderKat} colors={giderColors} />
+                    <h2 className="font-['Inter'] text-[11px] font-bold tracking-widest text-on-surface-variant uppercase pl-1">{t('kategori_analizi')}</h2>
+                    <PieChart title={t('harcama_dagilimi')} dataMap={giderKat} colors={giderColors} totalLabel={t('toplam')} language={language} />
                 </section>
             );
         }
@@ -340,6 +340,15 @@
         function Dashboard({ session }) {
             const [transactions, setTransactions] = useState([]);
             const [bakiye, setBakiye] = useState(0);
+            const [showBakiye, setShowBakiye] = useState(false);
+            const [rates, setRates] = useState({ USD: 0, EUR: 0 });
+            const [currentTime, setCurrentTime] = useState(new Date());
+            const [goals, setGoals] = useState(() => {
+                try {
+                    return JSON.parse(localStorage.getItem('finans_goals') || "[]");
+                } catch(e) { return []; }
+            });
+            const [newGoal, setNewGoal] = useState("");
 
             // Category State
             const [categories, setCategories] = useState([]);
@@ -351,6 +360,7 @@
             const [aciklama, setAciklama] = useState("");
             const [isHarcama, setIsHarcama] = useState(true);
             const [tekrarli, setTekrarli] = useState(false);
+            const [tekrarBitisTarihi, setTekrarBitisTarihi] = useState("");
             const [loading, setLoading] = useState(false);
             const [tarih, setTarih] = useState(new Date().toISOString().split('T')[0]);
             const [secilenKategori, setSecilenKategori] = useState("");
@@ -361,6 +371,7 @@
             const [editAciklama, setEditAciklama] = useState("");
             const [editIsHarcama, setEditIsHarcama] = useState(true);
             const [editTekrarli, setEditTekrarli] = useState(false);
+            const [editTekrarBitisTarihi, setEditTekrarBitisTarihi] = useState("");
             const [editTarih, setEditTarih] = useState("");
             const [editKategori, setEditKategori] = useState("");
             const [editLoading, setEditLoading] = useState(false);
@@ -388,7 +399,7 @@
                         ekle: "Ekle",
                         rapor: "Rapor",
                         ayarlar: "Ayarlar",
-                        finansal_odagim: "Finansal Odağım",
+                        finansal_odagim: "Varlıklarım",
                         bakiye: "Mevcut Net Bakiye",
                         yaklasan: "Yaklaşan Ödemeler",
                         ai: "Yapay Zeka Analizi",
@@ -398,14 +409,63 @@
                         kapat: "Kapat",
                         ac: "Açık",
                         kapali: "Kapalı",
-                        seciniz: "Seçiniz"
+                        seciniz: "Seçiniz",
+                        hedeflerim: "Finansal Hedeflerim",
+                        ay_basina: "Sonraki Ay Başına",
+                        gun_kaldi: "Gün Kaldı",
+                        yeni_hedef: "Yeni hedef ekle...",
+                        tamamlananlar: "Tamamlananlar",
+                        harcama: "Harcama",
+                        gelir: "Gelir",
+                        tutar: "Tutar",
+                        aciklama: "Açıklama",
+                        tarih: "Tarih",
+                        kategori: "Kategori",
+                        tekrarli_islem: "Tekrarlı İşlem",
+                        son_tekrar: "Son Tekrar Tarihi",
+                        ekleniyor: "Ekleniyor...",
+                        cikis: "Çıkış Yap",
+                        tumunu_gor: "Tümünü Gör",
+                        analiz_iste: "Analiz İste",
+                        ai_aciklama: "Harcamalarınıza özel içgörü almak için dokunun.",
+                        kategori_analizi: "Kategori Analizi",
+                        harcama_dagilimi: "Harcama Dağılımı",
+                        toplam: "Toplam",
+                        rapor_baslik: "Finansal Rapor",
+                        pdf_indir: "PDF olarak indir",
+                        ozeti: "Özeti",
+                        en_cok_harcananlar: "En Çok Harcananlar",
+                        ai_rapor_olustur: "AI Raporu Oluştur",
+                        kategorileri_yonet: "Kategorileri Yönet",
+                        kategorileri_yonet_desc: "Kategorileri yönetin",
+                        yeni_kategori_adi: "Yeni Kategori Adı",
+                        hizli_islem_ekle: "Hızlı İşlem Ekle",
+                        tamamla: "Tamamla",
+                        duzenle: "Düzenle",
+                        sil: "Sil",
+                        islem_duzenle: "İşlemi Düzenle",
+                        kaydet: "Kaydet",
+                        kaydediliyor: "Kaydediliyor...",
+                        bugun: "Bugün",
+                        yarin: "Yarın",
+                        gun_sonra: "gün sonra",
+                        ekstre_analizi: "Kredi Kartı Ekstre Analizi",
+                        ekstre_desc: "PDF formatındaki ekstrenizi yükleyerek harcama alışkanlıklarınızı analiz edin.",
+                        ekstre_yukle: "Ekstre Yükle (PDF)",
+                        analiz_ediliyor: "Ekstreniz analiz ediliyor...",
+                        yeni_dosya: "Yeni Dosya Yükle",
+                        rapor_hazirlaniyor: "Raporunuz hazırlanıyor...",
+                        tum_yaklasan: "Tüm Yaklaşan İşlemler",
+                        bildirimler_kapali: "Bildirimler Kapalı",
+                        bildirim_ac_desc: "Yaklaşan ödemelerden anında haberdar olmak için bildirimleri açın.",
+                        bildirimleri_ac: "Bildirimleri Aç"
                     },
                     en: {
                         genel: "General",
                         ekle: "Add",
                         rapor: "Report",
                         ayarlar: "Settings",
-                        finansal_odagim: "Financial Focus",
+                        finansal_odagim: "My Assets",
                         bakiye: "Current Net Balance",
                         yaklasan: "Upcoming Payments",
                         ai: "AI Analysis",
@@ -415,7 +475,56 @@
                         kapat: "Close",
                         ac: "On",
                         kapali: "Off",
-                        seciniz: "Select"
+                        seciniz: "Select",
+                        hedeflerim: "Financial Goals",
+                        ay_basina: "Until Next Month",
+                        gun_kaldi: "Days Left",
+                        yeni_hedef: "Add new goal...",
+                        tamamlananlar: "Completed",
+                        harcama: "Expense",
+                        gelir: "Income",
+                        tutar: "Amount",
+                        aciklama: "Description",
+                        tarih: "Date",
+                        kategori: "Category",
+                        tekrarli_islem: "Recurring Transaction",
+                        son_tekrar: "Last Repeat Date",
+                        ekleniyor: "Adding...",
+                        cikis: "Logout",
+                        tumunu_gor: "See All",
+                        analiz_iste: "Request Analysis",
+                        ai_aciklama: "Tap to get personalized insights on your spending.",
+                        kategori_analizi: "Category Analysis",
+                        harcama_dagilimi: "Spending Distribution",
+                        toplam: "Total",
+                        rapor_baslik: "Financial Report",
+                        pdf_indir: "Download as PDF",
+                        ozeti: "Summary",
+                        en_cok_harcananlar: "Top Spenders",
+                        ai_rapor_olustur: "Generate AI Report",
+                        kategorileri_yonet: "Manage Categories",
+                        kategorileri_yonet_desc: "Manage categories",
+                        yeni_kategori_adi: "New Category Name",
+                        hizli_islem_ekle: "Add Quick Transaction",
+                        tamamla: "Complete",
+                        duzenle: "Edit",
+                        sil: "Delete",
+                        islem_duzenle: "Edit Transaction",
+                        kaydet: "Save",
+                        kaydediliyor: "Saving...",
+                        bugun: "Today",
+                        yarin: "Tomorrow",
+                        gun_sonra: "days later",
+                        ekstre_analizi: "Credit Card Statement Analysis",
+                        ekstre_desc: "Upload your statement in PDF format to analyze your spending habits.",
+                        ekstre_yukle: "Upload Statement (PDF)",
+                        analiz_ediliyor: "Analyzing your statement...",
+                        yeni_dosya: "Upload New File",
+                        rapor_hazirlaniyor: "Preparing your report...",
+                        tum_yaklasan: "All Upcoming Transactions",
+                        bildirimler_kapali: "Notifications Off",
+                        bildirim_ac_desc: "Turn on notifications to be alerted about upcoming payments instantly.",
+                        bildirimleri_ac: "Turn on Notifications"
                     }
                 };
                 return translations[language][key] || key;
@@ -543,7 +652,32 @@
                 lucide.createIcons();
                 fetchTransactions();
                 fetchCategories();
+                fetchExchangeRates();
             }, []);
+
+            useEffect(() => {
+                localStorage.setItem('finans_goals', JSON.stringify(goals));
+            }, [goals]);
+
+            useEffect(() => {
+                const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            const fetchExchangeRates = async () => {
+                try {
+                    const res = await fetch('https://api.exchangerate-api.com/v4/latest/TRY');
+                    const data = await res.json();
+                    if (data.rates) {
+                        setRates({
+                            USD: data.rates.USD,
+                            EUR: data.rates.EUR
+                        });
+                    }
+                } catch (err) {
+                    console.error("Döviz kurları alınamadı:", err);
+                }
+            };
 
             const fetchCategories = async () => {
                 const { data, error } = await supabase
@@ -672,7 +806,8 @@
                     tarih: dt.toISOString(),
                     kategori: secilenKategori,
                     user_id: session.user.id,
-                    tamamlandi: false
+                    tamamlandi: false,
+                    tekrar_bitis_tarihi: tekrarli ? tekrarBitisTarihi : null
                 };
 
                 const { error } = await supabase
@@ -688,6 +823,7 @@
                     setTutar("");
                     setAciklama("");
                     setTekrarli(false);
+                    setTekrarBitisTarihi("");
                     setSecilenKategori("");
                     setShowQuickAdd(false);
                     fetchTransactions();
@@ -700,6 +836,7 @@
                 setEditAciklama(item.aciklama);
                 setEditIsHarcama(item.tip === 'gider');
                 setEditTekrarli(item.tekrarli || false);
+                setEditTekrarBitisTarihi(item.tekrar_bitis_tarihi || "");
                 setEditTarih(item.tarih ? new Date(item.tarih).toISOString().split('T')[0] : "");
                 setEditKategori(item.kategori || "");
             };
@@ -720,7 +857,8 @@
                     tip: editIsHarcama ? 'gider' : 'gelir',
                     tekrarli: editTekrarli,
                     tarih: dt.toISOString(),
-                    kategori: editKategori
+                    kategori: editKategori,
+                    tekrar_bitis_tarihi: editTekrarli ? editTekrarBitisTarihi : null
                 };
 
                 const { error } = await supabase
@@ -767,7 +905,7 @@
 
             const formatedDateString = (isoString) => {
                 const d = new Date(isoString);
-                return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                return d.toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
             };
 
             const now = new Date();
@@ -806,13 +944,13 @@
                                             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                                                 <Icon name="bar-chart-2" className="w-5 h-5" />
                                             </div>
-                                            <h3 className="font-bold text-lg">Finansal Rapor</h3>
+                                            <h3 className="font-bold text-lg">{t('rapor_baslik')}</h3>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button 
                                                 onClick={exportToPDF}
                                                 className="p-2 hover:bg-primary/10 text-primary rounded-full transition-colors"
-                                                title="PDF olarak indir"
+                                                title={t('pdf_indir')}
                                             >
                                                 <Icon name="download" className="w-5 h-5" />
                                             </button>
@@ -868,26 +1006,26 @@
                                         return (
                                             <section className="space-y-4">
                                                 <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">
-                                                    {new Date(reportMonth + "-01").toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US', { month: 'long', year: 'numeric' })} Özeti
+                                                    {new Date(reportMonth + "-01").toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US', { month: 'long', year: 'numeric' })} {t('ozeti')}
                                                 </h4>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="bg-secondary-container/30 p-4 rounded-2xl border border-secondary/10">
-                                                        <div className="text-secondary text-xs font-bold uppercase mb-1">Gelir</div>
+                                                        <div className="text-secondary text-xs font-bold uppercase mb-1">{t('gelir')}</div>
                                                         <div className="text-xl font-black text-secondary">
-                                                            {formatCurrency(mGelir, 0)}
+                                                            {formatCurrency(mGelir, 0, language)}
                                                         </div>
                                                     </div>
                                                     <div className="bg-error/5 p-4 rounded-2xl border border-error/10">
-                                                        <div className="text-error text-xs font-bold uppercase mb-1">Gider</div>
+                                                        <div className="text-error text-xs font-bold uppercase mb-1">{t('harcama')}</div>
                                                         <div className="text-xl font-black text-error">
-                                                            {formatCurrency(mGider, 0)}
+                                                            {formatCurrency(mGider, 0, language)}
                                                         </div>
                                                     </div>
                                                 </div>
                                                 <div className={`p-4 rounded-2xl border ${mBakiye >= 0 ? 'bg-primary/5 border-primary/10' : 'bg-error/5 border-error/10'}`}>
-                                                    <div className={`${mBakiye >= 0 ? 'text-primary' : 'text-error'} text-xs font-bold uppercase mb-1`}>Aylık Net Bakiye</div>
+                                                    <div className={`${mBakiye >= 0 ? 'text-primary' : 'text-error'} text-xs font-bold uppercase mb-1`}>{language === 'tr' ? 'Aylık Net Bakiye' : 'Monthly Net Balance'}</div>
                                                     <div className={`text-2xl font-black ${mBakiye >= 0 ? 'text-primary' : 'text-error'}`}>
-                                                        {formatCurrency(mBakiye, 0)}
+                                                        {formatCurrency(mBakiye, 0, language)}
                                                     </div>
                                                 </div>
                                             </section>
@@ -896,13 +1034,13 @@
 
                                     {/* Category Distribution */}
                                     <section className="space-y-4">
-                                        <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">En Çok Harcananlar</h4>
+                                        <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">{t('en_cok_harcananlar')}</h4>
                                         <div className="space-y-3">
                                             {Object.entries(
                                                 transactions
                                                     .filter(t => t.tip === 'gider' && t.tarih.startsWith(reportMonth))
                                                     .reduce((acc, t) => {
-                                                        const kat = t.kategori || "Diğer";
+                                                        const kat = t.kategori || (language === 'tr' ? "Diğer" : "Other");
                                                         acc[kat] = (acc[kat] || 0) + (parseFloat(t.miktar) || 0);
                                                         return acc;
                                                     }, {})
@@ -933,14 +1071,14 @@
                                         <div className="bg-primary/5 rounded-2xl p-5 border border-primary/10 relative overflow-hidden">
                                             <h4 className="text-[11px] font-bold text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
                                                 <Icon name="sparkles" className="w-3 h-3" />
-                                                Yapay Zeka Analizi
+                                                {t('ai')}
                                             </h4>
                                             {reportAiInsight || reportInsightLoading ? (
                                                 <p className="text-primary font-medium text-sm leading-relaxed">
                                                     {reportInsightLoading ? (
                                                         <span className="flex items-center gap-2">
                                                             <Icon name="loader-2" className="w-4 h-4 animate-spin" />
-                                                            Raporunuz hazırlanıyor...
+                                                            {t('rapor_hazirlaniyor')}
                                                         </span>
                                                     ) : reportAiInsight}
                                                 </p>
@@ -949,7 +1087,7 @@
                                                     onClick={() => fetchAiInsight('report')}
                                                     className="w-full bg-primary text-on-primary font-bold py-3 rounded-xl shadow-md active:scale-95 transition-transform text-sm data-html2canvas-ignore"
                                                 >
-                                                    AI Raporu Oluştur
+                                                    {t('ai_rapor_olustur')}
                                                 </button>
                                             )}
                                         </div>
@@ -960,7 +1098,7 @@
                                         <div className="bg-tertiary/5 rounded-2xl p-5 border border-tertiary/10 relative overflow-hidden">
                                             <h4 className="text-[11px] font-bold text-tertiary uppercase tracking-widest mb-4 flex items-center gap-2">
                                                 <Icon name="file-text" className="w-3 h-3" />
-                                                Kredi Kartı Ekstre Analizi
+                                                {t('ekstre_analizi')}
                                             </h4>
                                             {statementAnalysis || statementLoading ? (
                                                 <div className="space-y-4">
@@ -968,7 +1106,7 @@
                                                         {statementLoading ? (
                                                             <span className="flex items-center gap-2">
                                                                 <Icon name="loader-2" className="w-4 h-4 animate-spin" />
-                                                                Ekstreniz analiz ediliyor...
+                                                                {t('analiz_ediliyor')}
                                                             </span>
                                                         ) : statementAnalysis}
                                                     </p>
@@ -977,16 +1115,16 @@
                                                             onClick={() => { setStatementAnalysis(""); }}
                                                             className="text-[10px] font-bold text-tertiary/60 hover:text-tertiary uppercase tracking-tighter transition-colors"
                                                         >
-                                                            Yeni Dosya Yükle
+                                                            {t('yeni_dosya')}
                                                         </button>
                                                     )}
                                                 </div>
                                             ) : (
                                                 <div className="space-y-3">
-                                                    <p className="text-on-surface-variant text-[11px] leading-tight">PDF formatındaki ekstrenizi yükleyerek harcama alışkanlıklarınızı analiz edin.</p>
+                                                    <p className="text-on-surface-variant text-[11px] leading-tight">{t('ekstre_desc')}</p>
                                                     <label className="w-full bg-tertiary text-on-primary font-bold py-3 rounded-xl shadow-md active:scale-95 transition-transform text-sm flex items-center justify-center gap-2 cursor-pointer">
                                                         <Icon name="upload" className="w-4 h-4" />
-                                                        Ekstre Yükle (PDF)
+                                                        {t('ekstre_yukle')}
                                                         <input 
                                                             type="file" 
                                                             accept=".pdf" 
@@ -1003,7 +1141,7 @@
                                 </div>
                                 <div className="p-4 bg-surface-container-low border-t border-outline-variant/30">
                                     <button onClick={() => setShowReport(false)} className="w-full py-3 text-on-surface-variant font-bold text-sm">
-                                        Kapat
+                                        {t('kapat')}
                                     </button>
                                 </div>
                             </div>
@@ -1015,7 +1153,7 @@
                         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
                                 <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
-                                    <h3 className="font-bold text-lg">Tüm Yaklaşan İşlemler</h3>
+                                    <h3 className="font-bold text-lg">{t('tum_yaklasan')}</h3>
                                     <button onClick={() => setShowNotifications(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
                                         <Icon name="x" className="w-5 h-5" />
                                     </button>
@@ -1024,20 +1162,20 @@
                                     {notificationPermission !== 'granted' && (
                                         <div className="mb-6 p-4 bg-primary/10 rounded-xl border border-primary/20 text-center">
                                             <Icon name="bell-ring" className="w-8 h-8 text-primary mx-auto mb-2 opacity-80" />
-                                            <h4 className="font-bold text-primary text-sm mb-1">Bildirimler Kapalı</h4>
-                                            <p className="text-on-surface-variant text-[11px] mb-3">Yaklaşan ödemelerden anında haberdar olmak için bildirimleri açın.</p>
+                                            <h4 className="font-bold text-primary text-sm mb-1">{t('bildirimler_kapali')}</h4>
+                                            <p className="text-on-surface-variant text-[11px] mb-3">{t('bildirim_ac_desc')}</p>
                                             <button 
                                                 onClick={requestNotificationPermission}
                                                 className="w-full bg-primary text-on-primary font-bold py-2 rounded-lg text-xs shadow-md active:scale-95 transition-transform"
                                             >
-                                                Şimdi Etkinleştir
+                                                {t('bildirimleri_ac')}
                                             </button>
                                         </div>
                                     )}
                                     {allUpcoming.length === 0 ? (
                                         <div className="text-center text-sm text-on-surface-variant py-8">
                                             <Icon name="calendar" className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                                            Yaklaşan bir işlem bulunmuyor.
+                                            {language === 'tr' ? 'Yaklaşan bir işlem bulunmuyor.' : 'No upcoming transactions found.'}
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
@@ -1051,7 +1189,7 @@
                                                         <div className="text-on-surface-variant text-xs">{formatedDateString(t.tarih)}</div>
                                                     </div>
                                                     <div className={`font-bold text-sm ${t.tip === 'gelir' ? 'text-secondary' : 'text-error'}`}>
-                                                        {t.tip === 'gelir' ? '+' : '-'} {formatCurrency(t.miktar)}
+                                                        {t.tip === 'gelir' ? '+' : '-'} {formatCurrency(t.miktar, 0, language)}
                                                     </div>
                                                 </div>
                                             ))}
@@ -1101,8 +1239,8 @@
                                                 <Icon name="tags" className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <div className="font-bold text-on-surface">Kategoriler</div>
-                                                <div className="text-xs text-on-surface-variant font-medium">Kategorileri yönetin</div>
+                                                <div className="font-bold text-on-surface">{t('kategorileri_yonet')}</div>
+                                                <div className="text-xs text-on-surface-variant font-medium">{t('kategorileri_yonet_desc')}</div>
                                             </div>
                                         </div>
                                         <Icon name="chevron-right" className="w-5 h-5 text-outline-variant group-hover:text-primary transition-colors" />
@@ -1146,7 +1284,7 @@
                         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
                                 <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
-                                    <h3 className="font-bold text-lg">Kategorileri Yönet</h3>
+                                    <h3 className="font-bold text-lg">{t('kategorileri_yonet')}</h3>
                                     <button onClick={() => setShowCategoryManager(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
                                         <Icon name="x" className="w-5 h-5" />
                                     </button>
@@ -1154,18 +1292,18 @@
                                 <div className="p-4 border-b border-outline-variant/30 flex gap-2">
                                     <input
                                         type="text"
-                                        placeholder="Yeni Kategori Adı"
+                                        placeholder={t('yeni_kategori_adi')}
                                         value={newCategoryName}
                                         onChange={e => setNewCategoryName(e.target.value)}
                                         className="flex-1 bg-surface-container-low border-transparent focus:border-transparent focus:ring-0 rounded-xl px-4 py-2 outline-none"
                                     />
                                     <button onClick={handleAddCategory} className="bg-primary text-on-primary p-2 px-4 rounded-xl font-bold active:scale-95 transition-transform">
-                                        Ekle
+                                        {t('ekle')}
                                     </button>
                                 </div>
                                 <div className="overflow-y-auto p-4 flex-1">
                                     {categories.length === 0 ? (
-                                        <div className="text-center text-sm text-on-surface-variant py-4">Henüz kategori eklenmemiş.</div>
+                                        <div className="text-center text-sm text-on-surface-variant py-4">{language === 'tr' ? 'Henüz kategori eklenmemiş.' : 'No categories added yet.'}</div>
                                     ) : (
                                         <div className="space-y-2">
                                             {categories.map(cat => (
@@ -1188,7 +1326,7 @@
                         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
                                 <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
-                                    <h3 className="font-bold text-lg">Hızlı İşlem Ekle</h3>
+                                    <h3 className="font-bold text-lg">{t('hizli_islem_ekle')}</h3>
                                     <button onClick={() => setShowQuickAdd(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
                                         <Icon name="x" className="w-5 h-5" />
                                     </button>
@@ -1202,20 +1340,20 @@
                                                     onClick={() => setIsHarcama(true)}
                                                     className={`flex-1 py-2 text-sm font-bold rounded-full transition-all z-10 ${isHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
                                                 >
-                                                    Harcama
+                                                    {t('harcama')}
                                                 </button>
                                                 <button
                                                     onClick={() => setIsHarcama(false)}
                                                     className={`flex-1 py-2 text-sm font-bold rounded-full transition-all z-10 ${!isHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
                                                 >
-                                                    Gelir
+                                                    {t('gelir')}
                                                 </button>
                                             </div>
                                         </div>
 
                                         {/* Amount Row */}
                                         <div className="bg-surface-container-lowest p-4 flex justify-between items-center bg-surface-container-lowest">
-                                            <span className="text-on-surface-variant font-medium">Tutar (₺)</span>
+                                            <span className="text-on-surface-variant font-medium">{t('tutar')} (₺)</span>
                                             <input
                                                 type="number"
                                                 value={tutar}
@@ -1227,7 +1365,7 @@
 
                                         {/* Description Row */}
                                         <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
-                                            <span className="text-on-surface-variant font-medium">Açıklama</span>
+                                            <span className="text-on-surface-variant font-medium">{t('aciklama')}</span>
                                             <input
                                                 type="text"
                                                 value={aciklama}
@@ -1239,7 +1377,7 @@
 
                                         {/* Date Row */}
                                         <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
-                                            <span className="text-on-surface-variant font-medium">Tarih</span>
+                                            <span className="text-on-surface-variant font-medium">{t('tarih')}</span>
                                             <input
                                                 type="date"
                                                 value={tarih}
@@ -1250,13 +1388,13 @@
 
                                         {/* Category Row */}
                                         <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
-                                            <span className="text-on-surface-variant font-medium">Kategori</span>
+                                            <span className="text-on-surface-variant font-medium">{t('kategori')}</span>
                                             <select
                                                 value={secilenKategori}
                                                 onChange={(e) => setSecilenKategori(e.target.value)}
                                                 className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 w-1/2 font-medium"
                                             >
-                                                <option value="">Seçiniz</option>
+                                                <option value="">{t('seciniz')}</option>
                                                 {categories.map((cat, index) => (
                                                     <option key={`${cat.id}-${index}`} value={cat.isim}>{cat.isim}</option>
                                                 ))}
@@ -1264,9 +1402,8 @@
                                         </div>
 
                                         {/* Switch Row */}
-                                        <div className="bg-surface-container-lowest p-4 rounded-b-xl flex justify-between items-center">
-                                            <span className="text-on-surface-variant font-medium">Tekrarlı Ödeme</span>
-
+                                        <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
+                                            <span className="text-on-surface-variant font-medium">{t('tekrarli_islem')}</span>
                                             <button
                                                 type="button"
                                                 onClick={() => setTekrarli(!tekrarli)}
@@ -1275,6 +1412,19 @@
                                                 <div className={`w-4 h-4 bg-white rounded-full absolute shadow-sm transition-transform duration-300 ${tekrarli ? 'right-1' : 'left-1'}`}></div>
                                             </button>
                                         </div>
+
+                                        {/* End Date Row - Conditional */}
+                                        {tekrarli && (
+                                            <div className="bg-surface-container-lowest p-4 rounded-b-xl flex justify-between items-center border-t border-surface-container-low animate-in slide-in-from-top duration-200">
+                                                <span className="text-on-surface-variant font-medium">{t('son_tekrar')}</span>
+                                                <input
+                                                    type="date"
+                                                    value={tekrarBitisTarihi}
+                                                    onChange={(e) => setTekrarBitisTarihi(e.target.value)}
+                                                    className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 w-1/2"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
                                     <button
@@ -1283,7 +1433,7 @@
                                         className="w-full bg-primary text-on-primary font-bold py-4 rounded-full shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
                                     >
                                         {loading ? <Icon name="loader-2" className="animate-spin w-5 h-5" /> : <Icon name="plus" className="w-5 h-5" />}
-                                        {loading ? "Ekleniyor..." : "Ekle"}
+                                        {loading ? t('ekleniyor') : t('ekle')}
                                     </button>
                                 </div>
                             </div>
@@ -1295,7 +1445,7 @@
                         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col">
                                 <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
-                                    <h3 className="font-bold text-lg">İşlemi Düzenle</h3>
+                                    <h3 className="font-bold text-lg">{t('islem_duzenle')}</h3>
                                     <button onClick={() => setEditingTx(null)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
                                         <Icon name="x" className="w-5 h-5" />
                                     </button>
@@ -1306,44 +1456,50 @@
                                             onClick={() => setEditIsHarcama(true)}
                                             className={`flex-1 py-1.5 text-sm font-bold rounded-full transition-all z-10 ${editIsHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
                                         >
-                                            Harcama
+                                            {t('harcama')}
                                         </button>
                                         <button
                                             onClick={() => setEditIsHarcama(false)}
                                             className={`flex-1 py-1.5 text-sm font-bold rounded-full transition-all z-10 ${!editIsHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
                                         >
-                                            Gelir
+                                            {t('gelir')}
                                         </button>
                                     </div>
                                     <div className="space-y-3 pt-2">
                                         <div>
-                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">Tutar (₺)</label>
+                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('tutar')} (₺)</label>
                                             <input type="number" value={editTutar} onChange={e => setEditTutar(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary font-bold text-primary" />
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">Açıklama</label>
+                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('aciklama')}</label>
                                             <input type="text" value={editAciklama} onChange={e => setEditAciklama(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary" />
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">Tarih</label>
+                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('tarih')}</label>
                                             <input type="date" value={editTarih} onChange={e => setEditTarih(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary" />
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">Kategori</label>
+                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('kategori')}</label>
                                             <select value={editKategori} onChange={e => setEditKategori(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary">
-                                                <option value="">Seçiniz</option>
+                                                <option value="">{t('seciniz')}</option>
                                                 {categories.map(cat => <option key={cat.id} value={cat.isim}>{cat.isim}</option>)}
                                             </select>
                                         </div>
                                         <div className="flex justify-between items-center bg-surface-container-low rounded-xl px-4 py-3">
-                                            <span className="text-sm font-bold text-on-surface-variant">Tekrarlı Ödeme</span>
+                                            <span className="text-sm font-bold text-on-surface-variant">{t('tekrarli_islem')}</span>
                                             <button type="button" onClick={() => setEditTekrarli(!editTekrarli)} className={`w-10 h-5 rounded-full relative flex items-center px-1 transition-colors duration-300 ${editTekrarli ? 'bg-secondary' : 'bg-outline-variant'}`}>
                                                 <div className={`w-3.5 h-3.5 bg-white rounded-full absolute shadow-sm transition-transform duration-300 ${editTekrarli ? 'right-1' : 'left-1'}`}></div>
                                             </button>
                                         </div>
+                                        {editTekrarli && (
+                                            <div className="bg-surface-container-low rounded-xl px-4 py-3 animate-in slide-in-from-top duration-200">
+                                                <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('son_tekrar')}</label>
+                                                <input type="date" value={editTekrarBitisTarihi} onChange={e => setEditTekrarBitisTarihi(e.target.value)} className="w-full bg-transparent rounded-xl mt-1 outline-none border-none focus:ring-0 p-0 text-sm" />
+                                            </div>
+                                        )}
                                     </div>
                                     <button onClick={handleUpdateTx} disabled={editLoading} className="w-full bg-primary text-on-primary font-bold py-3 rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 mt-2">
-                                        {editLoading ? "Kaydediliyor..." : "Kaydet"}
+                                        {editLoading ? t('kaydediliyor') : t('kaydet')}
                                     </button>
                                 </div>
                             </div>
@@ -1376,7 +1532,7 @@
                             <button
                                 onClick={() => supabase.auth.signOut()}
                                 className="text-error hover:opacity-70 transition-opacity active:scale-95 duration-200 bg-error/10 p-2 rounded-full"
-                                title="Çıkış Yap"
+                                title={t('cikis')}
                             >
                                 <Icon name="log-out" className="w-5 h-5" />
                             </button>
@@ -1388,12 +1544,157 @@
                         <section className="space-y-1">
                             <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">{t('finansal_odagim')}</h1>
                             <div className="pt-4">
-                                <div className="text-[2.8rem] font-black leading-none tracking-tight text-secondary">
-                                    {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(bakiye)}
+                                <div className="flex items-center gap-3">
+                                    <div className="text-[2.8rem] font-black leading-none tracking-tight text-secondary">
+                                        {showBakiye ? (
+                                            new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(bakiye)
+                                        ) : (() => {
+                                            const amount = Math.abs(Math.round(bakiye));
+                                            const str = amount.toString();
+                                            const masked = str[0] + "*".repeat(str.length - 1);
+                                            const sign = bakiye < 0 ? "-" : "";
+                                            return `${sign}${masked} ₺`;
+                                        })()}
+                                    </div>
+                                    <button 
+                                        onClick={() => setShowBakiye(!showBakiye)}
+                                        className="p-2 bg-surface-container-high rounded-full text-on-surface-variant hover:text-primary transition-colors active:scale-90"
+                                    >
+                                        <Icon name={showBakiye ? "eye-off" : "eye"} className="w-5 h-5" />
+                                    </button>
                                 </div>
                                 <div className="text-on-surface-variant font-medium text-sm mt-2 flex items-center gap-1">
                                     {t('bakiye')}
                                     <Icon name="info" className="w-3 h-3 ml-1" />
+                                </div>
+                                {rates.USD > 0 && (
+                                    <div className="mt-2 flex gap-4 text-on-surface-variant/60 font-bold text-lg">
+                                        <div className="flex items-center gap-1">
+                                            <Icon name="dollar-sign" className="w-4 h-4" />
+                                            {showBakiye ? (
+                                                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(bakiye * rates.USD)
+                                            ) : (() => {
+                                                const amount = Math.abs(Math.round(bakiye * rates.USD));
+                                                const str = amount.toString();
+                                                const masked = str[0] + "*".repeat(str.length - 1);
+                                                const sign = bakiye < 0 ? "-" : "";
+                                                return `${sign}$${masked}`;
+                                            })()}
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Icon name="euro" className="w-4 h-4" />
+                                            {showBakiye ? (
+                                                new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(bakiye * rates.EUR)
+                                            ) : (() => {
+                                                const amount = Math.abs(Math.round(bakiye * rates.EUR));
+                                                const str = amount.toString();
+                                                const masked = str[0] + "*".repeat(str.length - 1);
+                                                const sign = bakiye < 0 ? "-" : "";
+                                                return `${sign}${masked} €`;
+                                            })()}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        {/* Financial Goals Section */}
+                        <section className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] space-y-4">
+                            <h2 className="text-xl font-bold tracking-tight text-on-surface">Finansal Hedeflerim</h2>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 text-on-surface-variant text-sm font-medium">
+                                    <Icon name="calendar" className="w-4 h-4 text-primary" />
+                                    {currentTime.toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                </div>
+                                <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex justify-between items-center">
+                                    <div>
+                                        <div className="text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">{t('ay_basina')}</div>
+                                        <div className="text-2xl font-black text-primary">
+                                            {(() => {
+                                                const now = new Date();
+                                                const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                                                const diff = nextMonth - now;
+                                                return Math.ceil(diff / (1000 * 60 * 60 * 24));
+                                            })()}
+                                            <span className="text-sm font-bold ml-1">{t('gun_kaldi')}</span>
+                                        </div>
+                                    </div>
+                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                        <Icon name="timer" className="w-6 h-6" />
+                                    </div>
+                                </div>
+
+                                {/* Goals Management */}
+                                <div className="pt-2 space-y-4">
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            placeholder={t('yeni_hedef')} 
+                                            value={newGoal}
+                                            onChange={(e) => setNewGoal(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && (() => {
+                                                if (newGoal.trim()) {
+                                                    setGoals([...goals, { id: Date.now(), text: newGoal.trim(), completed: false }]);
+                                                    setNewGoal("");
+                                                }
+                                            })()}
+                                            className="flex-1 bg-surface-container-low border-transparent focus:border-primary/30 focus:ring-0 rounded-xl px-4 py-2 text-sm outline-none transition-all"
+                                        />
+                                        <button 
+                                            onClick={() => {
+                                                if (newGoal.trim()) {
+                                                    setGoals([...goals, { id: Date.now(), text: newGoal.trim(), completed: false }]);
+                                                    setNewGoal("");
+                                                }
+                                            }}
+                                            className="bg-primary text-on-primary p-2 rounded-xl active:scale-95 transition-transform"
+                                        >
+                                            <Icon name="plus" className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    {/* Active Goals */}
+                                    <div className="space-y-2">
+                                        {goals.filter(g => !g.completed).map(goal => (
+                                            <div key={goal.id} className="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl group animate-in slide-in-from-left duration-300">
+                                                <button 
+                                                    onClick={() => setGoals(goals.map(g => g.id === goal.id ? { ...g, completed: true } : g))}
+                                                    className="w-5 h-5 rounded-full border-2 border-outline-variant hover:border-primary flex items-center justify-center transition-colors"
+                                                >
+                                                </button>
+                                                <span className="flex-1 text-sm font-medium text-on-surface">{goal.text}</span>
+                                                <button 
+                                                    onClick={() => setGoals(goals.filter(g => g.id !== goal.id))}
+                                                    className="opacity-0 group-hover:opacity-100 p-1 text-error/60 hover:text-error transition-all"
+                                                >
+                                                    <Icon name="trash-2" className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Completed Goals */}
+                                    {goals.some(g => g.completed) && (
+                                        <div className="pt-2">
+                                            <div className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2 opacity-50">{t('tamamlananlar')}</div>
+                                            <div className="space-y-2">
+                                                {goals.filter(g => g.completed).map(goal => (
+                                                    <div key={goal.id} className="flex items-center gap-3 p-3 bg-surface-container-low/50 rounded-xl opacity-60">
+                                                        <div className="w-5 h-5 rounded-full bg-secondary text-on-primary flex items-center justify-center">
+                                                            <Icon name="check" className="w-3.5 h-3.5" />
+                                                        </div>
+                                                        <span className="flex-1 text-sm font-medium text-on-surface line-through">{goal.text}</span>
+                                                        <button 
+                                                            onClick={() => setGoals(goals.filter(g => g.id !== goal.id))}
+                                                            className="p-1 text-on-surface-variant hover:text-error transition-all"
+                                                        >
+                                                            <Icon name="trash-2" className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </section>
@@ -1402,8 +1703,8 @@
                         {upcomingTransactions.length > 0 && (
                             <section className="space-y-3">
                                 <h2 className="font-['Inter'] text-[11px] font-bold tracking-widest text-on-surface-variant uppercase pl-1">{t('yaklasan')}</h2>
-                                {upcomingTransactions.map(t => {
-                                    const txDate = new Date(t.tarih);
+                                {upcomingTransactions.map(tx => {
+                                    const txDate = new Date(tx.tarih);
                                     // Reset hours to compare just days
                                     const today = new Date();
                                     today.setHours(0, 0, 0, 0);
@@ -1414,21 +1715,21 @@
                                     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
                                     let timeText = "";
-                                    if (diffDays === 0) timeText = "Bugün";
-                                    else if (diffDays === 1) timeText = "Yarın";
-                                    else timeText = `${diffDays} gün sonra`;
+                                    if (diffDays === 0) timeText = t('bugun');
+                                    else if (diffDays === 1) timeText = t('yarin');
+                                    else timeText = `${diffDays} ${t('gun_sonra')}`;
 
                                     return (
-                                        <div key={`upcoming-${t.id}`} className={`bg-surface-container-lowest p-4 rounded-xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] flex items-center gap-4 group active:scale-[0.98] transition-all duration-200 cursor-pointer ${t.tamamlandi ? 'opacity-50' : ''}`}>
-                                            <div onClick={(e) => handleToggleComplete(e, t)} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${t.tamamlandi ? 'bg-secondary text-on-primary' : 'bg-tertiary-fixed text-tertiary'}`}>
-                                                <Icon name={t.tamamlandi ? "check" : "alert-circle"} className="w-5 h-5" />
+                                        <div key={`upcoming-${tx.id}`} className={`bg-surface-container-lowest p-4 rounded-xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] flex items-center gap-4 group active:scale-[0.98] transition-all duration-200 cursor-pointer ${tx.tamamlandi ? 'opacity-50' : ''}`}>
+                                            <div onClick={(e) => handleToggleComplete(e, tx)} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${tx.tamamlandi ? 'bg-secondary text-on-primary' : 'bg-tertiary-fixed text-tertiary'}`}>
+                                                <Icon name={tx.tamamlandi ? "check" : "alert-circle"} className="w-5 h-5" />
                                             </div>
-                                            <div className="flex-1 min-w-0" onClick={() => openEditModal(t)}>
-                                                <div className={`font-bold text-on-surface truncate ${t.tamamlandi ? 'line-through' : ''}`}>{t.aciklama}</div>
-                                                <div className="text-on-surface-variant text-sm">{timeText} • {formatCurrency(t.miktar)}</div>
+                                            <div className="flex-1 min-w-0" onClick={() => openEditModal(tx)}>
+                                                <div className={`font-bold text-on-surface truncate ${tx.tamamlandi ? 'line-through' : ''}`}>{tx.aciklama}</div>
+                                                <div className="text-on-surface-variant text-sm">{timeText} • {formatCurrency(tx.miktar, 0, language)}</div>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button onClick={(e) => handleToggleComplete(e, t)} className={`p-2 rounded-lg transition-colors ${t.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title="Tamamla">
+                                                <button onClick={(e) => handleToggleComplete(e, tx)} className={`p-2 rounded-lg transition-colors ${tx.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title={t('tamamla')}>
                                                     <Icon name="check-circle-2" className="w-5 h-5" />
                                                 </button>
                                                 <Icon name="chevron-right" className="text-outline-variant w-5 h-5 self-center" />
@@ -1448,7 +1749,7 @@
                                             {insightLoading ? <Icon name="loader-2" className="w-5 h-5 animate-spin" /> : <Icon name="bot" className="w-5 h-5" />}
                                         </div>
                                         <p className="text-primary font-medium text-[14px] leading-relaxed">
-                                            {insightLoading ? "Finansal verileriniz analiz ediliyor..." : aiInsight}
+                                            {insightLoading ? (language === 'tr' ? "Finansal verileriniz analiz ediliyor..." : "Your financial data is being analyzed...") : aiInsight}
                                         </p>
                                     </div>
                                 ) : (
@@ -1458,13 +1759,13 @@
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-primary">{t('ai')}</h3>
-                                            <p className="text-primary/80 text-sm mt-1">Harcamalarınıza özel içgörü almak için dokunun.</p>
+                                            <p className="text-primary/80 text-sm mt-1">{t('ai_aciklama')}</p>
                                         </div>
                                         <button
                                             onClick={() => fetchAiInsight('general')}
                                             className="mt-2 bg-primary text-on-primary px-6 py-2.5 rounded-full font-bold text-sm shadow-md active:scale-95 transition-transform"
                                         >
-                                            Analiz İste
+                                            {t('analiz_iste')}
                                         </button>
                                     </div>
                                 )}
@@ -1485,7 +1786,7 @@
                             <div className="bg-surface-container-low rounded-2xl overflow-hidden space-y-px">
                                 {transactions.length === 0 ? (
                                     <div className="bg-surface-container-lowest p-8 text-center text-on-surface-variant text-sm">
-                                        Henüz bir geçmiş işlem bulunmuyor.
+                                        {language === 'tr' ? 'Henüz bir geçmiş işlem bulunmuyor.' : 'No transaction history found yet.'}
                                     </div>
                                 ) : (
                                     (showAllPast ? transactions : transactions.slice(0, 3)).map(item => (
@@ -1511,16 +1812,16 @@
                                             </div>
                                             <div className="text-right flex flex-col items-end gap-1">
                                                 <div className={`font-bold ${item.tamamlandi ? 'line-through text-on-surface-variant' : (item.tip === 'gelir' ? 'text-secondary' : 'text-error')}`}>
-                                                    {item.tip === 'gelir' ? '+' : '-'} {formatCurrency(item.miktar)}
+                                                    {item.tip === 'gelir' ? '+' : '-'} {formatCurrency(item.miktar, 0, language)}
                                                 </div>
                                                 <div className="flex gap-1 items-center">
-                                                    <button onClick={(e) => handleToggleComplete(e, item)} className={`p-2 rounded-lg transition-colors active:scale-95 ${item.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title="Tamamla">
+                                                    <button onClick={(e) => handleToggleComplete(e, item)} className={`p-2 rounded-lg transition-colors active:scale-95 ${item.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title={t('tamamla')}>
                                                         <Icon name="check-circle-2" className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => openEditModal(item)} className="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-low rounded-lg active:scale-95" title="Düzenle">
+                                                    <button onClick={() => openEditModal(item)} className="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-low rounded-lg active:scale-95" title={t('duzenle')}>
                                                         <Icon name="pencil" className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteTx(item.id); }} className="p-2 text-on-surface-variant hover:text-error transition-colors bg-surface-container-low rounded-lg active:scale-95" title="Sil">
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteTx(item.id); }} className="p-2 text-on-surface-variant hover:text-error transition-colors bg-surface-container-low rounded-lg active:scale-95" title={t('sil')}>
                                                         <Icon name="trash-2" className="w-4 h-4" />
                                                     </button>
                                                 </div>
@@ -1530,7 +1831,7 @@
                                 )}
                                 {!showAllPast && transactions.length > 3 && (
                                     <button onClick={() => setShowAllPast(true)} className="w-full relative bg-surface-container-lowest py-3 text-sm font-bold text-primary transition-colors hover:bg-surface-container-high active:scale-[0.99]">
-                                        Tümünü Gör ({transactions.length})
+                                        {t('tumunu_gor')} ({transactions.length})
                                     </button>
                                 )}
                             </div>
