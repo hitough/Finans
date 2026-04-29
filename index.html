@@ -209,12 +209,12 @@
             return (
                 <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] mb-4">
                     <h3 className="font-bold tracking-tight text-on-surface mb-2">{title}</h3>
-                    <div className="relative h-64 w-full flex items-center justify-center">
+                    <div className="h-64 w-full flex items-center justify-center">
                         <canvas ref={canvasRef}></canvas>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-[-20px]">
-                            <span className="text-[10px] font-bold text-on-surface-variant uppercase opacity-60">{totalLabel}</span>
-                            <span className="text-sm font-black text-on-surface">{formatCurrency(total, 0, language)}</span>
-                        </div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center mt-4 border-t border-surface-container-high pt-4">
+                        <span className="text-[10px] font-bold text-on-surface-variant uppercase opacity-60">{totalLabel}</span>
+                        <span className="text-xl font-black text-on-surface">{formatCurrency(total, 0, language)}</span>
                     </div>
                 </div>
             );
@@ -225,7 +225,14 @@
         function CategoryCharts({ transactions, t, language }) {
             const giderKat = {};
 
+            const now = new Date();
             transactions.forEach(t => {
+                if (t.tekrarli) {
+                    const txDate = new Date(t.tarih);
+                    if (txDate.getMonth() !== now.getMonth() || txDate.getFullYear() !== now.getFullYear()) {
+                        return;
+                    }
+                }
                 const m = parseFloat(t.miktar) || 0;
                 const kat = t.kategori || "Diğer";
                 if (t.tip === 'gider') giderKat[kat] = (giderKat[kat] || 0) + m;
@@ -359,11 +366,7 @@
             const [showBakiye, setShowBakiye] = useState(false);
             const [rates, setRates] = useState({ USD: 0, EUR: 0 });
             const [currentTime, setCurrentTime] = useState(new Date());
-            const [goals, setGoals] = useState(() => {
-                try {
-                    return JSON.parse(localStorage.getItem('finans_goals') || "[]");
-                } catch(e) { return []; }
-            });
+            const [goals, setGoals] = useState([]);
             const [newGoal, setNewGoal] = useState("");
 
             // Category State
@@ -669,11 +672,8 @@
                 fetchTransactions();
                 fetchCategories();
                 fetchExchangeRates();
+                fetchGoals();
             }, []);
-
-            useEffect(() => {
-                localStorage.setItem('finans_goals', JSON.stringify(goals));
-            }, [goals]);
 
             useEffect(() => {
                 const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -704,6 +704,16 @@
                 if (data) setCategories(data);
             };
 
+            const fetchGoals = async () => {
+                const { data, error } = await supabase
+                    .from('goals')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .order('created_at', { ascending: true });
+                if (data) setGoals(data);
+                if (error) console.error("Hedefler çekilemedi:", error);
+            };
+
             const fetchTransactions = async () => {
                 try {
                     const { data, error } = await supabase
@@ -728,7 +738,16 @@
             };
 
             const hesaplaBakiye = (data) => {
+                const now = new Date();
                 const toplam = data.reduce((acc, curr) => {
+                    if (curr.tekrarli) {
+                        const txDate = new Date(curr.tarih);
+                        const isFutureMonth = txDate.getFullYear() > now.getFullYear() || 
+                                            (txDate.getFullYear() === now.getFullYear() && txDate.getMonth() > now.getMonth());
+                        if (isFutureMonth) {
+                            return acc;
+                        }
+                    }
                     const miktar = parseFloat(curr.miktar) || 0;
                     return curr.tip === 'gelir' ? acc + miktar : acc - miktar;
                 }, 0);
@@ -801,6 +820,40 @@
                 }
             };
 
+            const handleAddGoal = async () => {
+                if (!newGoal.trim()) return;
+                const { data, error } = await supabase
+                    .from('goals')
+                    .insert([{ 
+                        text: newGoal.trim(), 
+                        user_id: session.user.id,
+                        completed: false 
+                    }]);
+                if (!error) {
+                    setNewGoal("");
+                    fetchGoals();
+                } else {
+                    console.error("Hedef ekleme hatası:", error);
+                    alert("Hedef eklenirken hata oluştu. Lütfen 'goals' tablosunun oluşturulduğundan emin olun.");
+                }
+            };
+
+            const handleToggleGoal = async (goal) => {
+                const { error } = await supabase
+                    .from('goals')
+                    .update({ completed: !goal.completed })
+                    .eq('id', goal.id);
+                if (!error) fetchGoals();
+            };
+
+            const handleDeleteGoal = async (id) => {
+                const { error } = await supabase
+                    .from('goals')
+                    .delete()
+                    .eq('id', id);
+                if (!error) fetchGoals();
+            };
+
             const handleEkle = async () => {
                 if (!tutar || isNaN(parseFloat(tutar)) || !aciklama || !tarih) {
                     alert("Lütfen geçerli bir tutar, açıklama ve tarih giriniz.");
@@ -814,21 +867,50 @@
                 const now = new Date();
                 dt.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
 
-                const newTransaction = {
+                const transactionsToInsert = [];
+                const baseTx = {
                     miktar: parseFloat(tutar),
                     aciklama: aciklama,
                     tip: tip,
                     tekrarli: tekrarli,
-                    tarih: dt.toISOString(),
                     kategori: secilenKategori,
                     user_id: session.user.id,
                     tamamlandi: false,
                     tekrar_bitis_tarihi: tekrarli ? tekrarBitisTarihi : null
                 };
 
+                if (tekrarli && tekrarBitisTarihi) {
+                    let currDate = new Date(dt);
+                    const endDate = new Date(tekrarBitisTarihi);
+                    // Ensure end date includes the full day
+                    endDate.setHours(23, 59, 59, 999);
+
+                    while (currDate <= endDate) {
+                        transactionsToInsert.push({
+                            ...baseTx,
+                            tarih: currDate.toISOString()
+                        });
+                        
+                        // Advance by 1 month
+                        const nextMonth = new Date(currDate);
+                        nextMonth.setMonth(nextMonth.getMonth() + 1);
+                        
+                        // Handle month overflow (e.g., Jan 31 -> Feb 28)
+                        if (nextMonth.getDate() !== currDate.getDate()) {
+                            nextMonth.setDate(0);
+                        }
+                        currDate = nextMonth;
+                    }
+                } else {
+                    transactionsToInsert.push({
+                        ...baseTx,
+                        tarih: dt.toISOString()
+                    });
+                }
+
                 const { error } = await supabase
                     .from('transactions')
-                    .insert([newTransaction]);
+                    .insert(transactionsToInsert);
 
                 setLoading(false);
 
@@ -1648,21 +1730,11 @@
                                             placeholder={t('yeni_hedef')} 
                                             value={newGoal}
                                             onChange={(e) => setNewGoal(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && (() => {
-                                                if (newGoal.trim()) {
-                                                    setGoals([...goals, { id: Date.now(), text: newGoal.trim(), completed: false }]);
-                                                    setNewGoal("");
-                                                }
-                                            })()}
+                                            onKeyPress={(e) => e.key === 'Enter' && handleAddGoal()}
                                             className="flex-1 bg-surface-container-low border-transparent focus:border-primary/30 focus:ring-0 rounded-xl px-4 py-2 text-sm outline-none transition-all"
                                         />
                                         <button 
-                                            onClick={() => {
-                                                if (newGoal.trim()) {
-                                                    setGoals([...goals, { id: Date.now(), text: newGoal.trim(), completed: false }]);
-                                                    setNewGoal("");
-                                                }
-                                            }}
+                                            onClick={handleAddGoal}
                                             className="bg-primary text-on-primary p-2 rounded-xl active:scale-95 transition-transform"
                                         >
                                             <Icon name="plus" className="w-5 h-5" />
@@ -1674,13 +1746,13 @@
                                         {goals.filter(g => !g.completed).map(goal => (
                                             <div key={goal.id} className="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl group animate-in slide-in-from-left duration-300">
                                                 <button 
-                                                    onClick={() => setGoals(goals.map(g => g.id === goal.id ? { ...g, completed: true } : g))}
+                                                    onClick={() => handleToggleGoal(goal)}
                                                     className="w-5 h-5 rounded-full border-2 border-outline-variant hover:border-primary flex items-center justify-center transition-colors"
                                                 >
                                                 </button>
                                                 <span className="flex-1 text-sm font-medium text-on-surface">{goal.text}</span>
                                                 <button 
-                                                    onClick={() => setGoals(goals.filter(g => g.id !== goal.id))}
+                                                    onClick={() => handleDeleteGoal(goal.id)}
                                                     className="opacity-0 group-hover:opacity-100 p-1 text-error/60 hover:text-error transition-all"
                                                 >
                                                     <Icon name="trash-2" className="w-4 h-4" />
@@ -1696,12 +1768,15 @@
                                             <div className="space-y-2">
                                                 {goals.filter(g => g.completed).map(goal => (
                                                     <div key={goal.id} className="flex items-center gap-3 p-3 bg-surface-container-low/50 rounded-xl opacity-60">
-                                                        <div className="w-5 h-5 rounded-full bg-secondary text-on-primary flex items-center justify-center">
+                                                        <div 
+                                                            className="w-5 h-5 rounded-full bg-secondary text-on-primary flex items-center justify-center cursor-pointer"
+                                                            onClick={() => handleToggleGoal(goal)}
+                                                        >
                                                             <Icon name="check" className="w-3.5 h-3.5" />
                                                         </div>
                                                         <span className="flex-1 text-sm font-medium text-on-surface line-through">{goal.text}</span>
                                                         <button 
-                                                            onClick={() => setGoals(goals.filter(g => g.id !== goal.id))}
+                                                            onClick={() => handleDeleteGoal(goal.id)}
                                                             className="p-1 text-on-surface-variant hover:text-error transition-all"
                                                         >
                                                             <Icon name="trash-2" className="w-4 h-4" />
