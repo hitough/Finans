@@ -6,6 +6,11 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Finans</title>
 
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#faf9fe" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
@@ -2049,6 +2054,17 @@
         }
 
         root.render(<App />);
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => console.log('SW registered:', registration.scope))
+                    .catch(error => console.log('SW registration failed:', error));
+            });
+        }
     </script>
 </body>
 
