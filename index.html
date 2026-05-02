@@ -496,7 +496,7 @@
                         bildirimler_kapali: "Bildirimler Kapalı",
                         bildirim_ac_desc: "Yaklaşan işlemlerden anında haberdar olmak için bildirimleri açın.",
                         bildirimleri_ac: "Bildirimleri Aç",
-                        tum_islemler: "Tüm İşlemler"
+                        tum_islemler: "İşlemler"
                     },
                     en: {
                         genel: "General",
@@ -563,7 +563,7 @@
                         bildirimler_kapali: "Notifications Off",
                         bildirim_ac_desc: "Turn on notifications to be alerted about upcoming transactions instantly.",
                         bildirimleri_ac: "Turn on Notifications",
-                        tum_islemler: "All Transactions"
+                        tum_islemler: "Transactions"
                     }
                 };
                 return translations[language][key] || key;
@@ -1040,15 +1040,32 @@
 
             const exportToPDF = () => {
                 const element = document.getElementById('report-content');
+                if (!element) return;
+
+                // PDF için geçici stil ayarları
+                const originalStyle = element.style.cssText;
+                element.style.height = 'auto';
+                element.style.overflow = 'visible';
+                
                 const opt = {
-                    margin: 10,
+                    margin: [10, 5],
                     filename: `Finans_Rapor_${reportMonth}.pdf`,
                     image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true, logging: false },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    html2canvas: { 
+                        scale: 2, 
+                        useCORS: true, 
+                        logging: false,
+                        letterRendering: true,
+                        windowWidth: element.scrollWidth,
+                        windowHeight: element.scrollHeight
+                    },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
                 };
 
-                html2pdf().set(opt).from(element).save();
+                html2pdf().set(opt).from(element).save().then(() => {
+                    element.style.cssText = originalStyle;
+                });
             };
 
             return (
