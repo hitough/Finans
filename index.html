@@ -120,6 +120,7 @@
         .hide-scrollbar::-webkit-scrollbar {
             display: none;
         }
+
         .hide-scrollbar {
             -ms-overflow-style: none;
             scrollbar-width: none;
@@ -151,8 +152,8 @@
         };
 
         const formatCurrency = (amount, decimals = 2, language = 'tr') => {
-            return new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-US', { 
-                style: 'currency', 
+            return new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
+                style: 'currency',
                 currency: 'TRY',
                 minimumFractionDigits: decimals,
                 maximumFractionDigits: decimals
@@ -409,6 +410,9 @@
             const [editLoading, setEditLoading] = useState(false);
             const [showAllPast, setShowAllPast] = useState(false);
             const [historyCategoryFilter, setHistoryCategoryFilter] = useState("");
+            const [showAllTxModal, setShowAllTxModal] = useState(false);
+            const [allTxCategoryFilter, setAllTxCategoryFilter] = useState("");
+            const [allTxMonthFilter, setAllTxMonthFilter] = useState("");
 
             // AI States
             const [aiInsight, setAiInsight] = useState("");
@@ -434,7 +438,7 @@
                         ayarlar: "Ayarlar",
                         finansal_odagim: "Varlıklarım",
                         bakiye: "Mevcut Net Bakiye",
-                        yaklasan: "Yaklaşan Ödemeler",
+                        yaklasan: "Yaklaşan İşlemler",
                         ai: "Yapay Zeka Analizi",
                         gecmis: "İşlem Geçmişi",
                         bildirimler: "Bildirimler",
@@ -490,8 +494,9 @@
                         rapor_hazirlaniyor: "Raporunuz hazırlanıyor...",
                         tum_yaklasan: "Tüm Yaklaşan İşlemler",
                         bildirimler_kapali: "Bildirimler Kapalı",
-                        bildirim_ac_desc: "Yaklaşan ödemelerden anında haberdar olmak için bildirimleri açın.",
-                        bildirimleri_ac: "Bildirimleri Aç"
+                        bildirim_ac_desc: "Yaklaşan işlemlerden anında haberdar olmak için bildirimleri açın.",
+                        bildirimleri_ac: "Bildirimleri Aç",
+                        tum_islemler: "Tüm İşlemler"
                     },
                     en: {
                         genel: "General",
@@ -500,7 +505,7 @@
                         ayarlar: "Settings",
                         finansal_odagim: "My Assets",
                         bakiye: "Current Net Balance",
-                        yaklasan: "Upcoming Payments",
+                        yaklasan: "Upcoming Transactions",
                         ai: "AI Analysis",
                         gecmis: "Transaction History",
                         bildirimler: "Notifications",
@@ -556,130 +561,131 @@
                         rapor_hazirlaniyor: "Preparing your report...",
                         tum_yaklasan: "All Upcoming Transactions",
                         bildirimler_kapali: "Notifications Off",
-                        bildirim_ac_desc: "Turn on notifications to be alerted about upcoming payments instantly.",
-                        bildirimleri_ac: "Turn on Notifications"
+                        bildirim_ac_desc: "Turn on notifications to be alerted about upcoming transactions instantly.",
+                        bildirimleri_ac: "Turn on Notifications",
+                        tum_islemler: "All Transactions"
                     }
                 };
                 return translations[language][key] || key;
             };
 
-                const fetchAiInsight = async (mode = 'general') => {
-                    const setLoading = mode === 'report' ? setReportInsightLoading : setInsightLoading;
-                    const setInsight = mode === 'report' ? setReportAiInsight : setAiInsight;
+            const fetchAiInsight = async (mode = 'general') => {
+                const setLoading = mode === 'report' ? setReportInsightLoading : setInsightLoading;
+                const setInsight = mode === 'report' ? setReportAiInsight : setAiInsight;
 
-                    setLoading(true);
-                    setInsight("");
-                    try {
-                        const giderKat = {};
-                        let totalGelir = 0;
-                        let totalGider = 0;
+                setLoading(true);
+                setInsight("");
+                try {
+                    const giderKat = {};
+                    let totalGelir = 0;
+                    let totalGider = 0;
 
-                        const reportYear = parseInt(reportMonth.split('-')[0]);
-                        const reportMonthIdx = parseInt(reportMonth.split('-')[1]) - 1;
+                    const reportYear = parseInt(reportMonth.split('-')[0]);
+                    const reportMonthIdx = parseInt(reportMonth.split('-')[1]) - 1;
 
-                        transactions.forEach(t => {
-                            const d = new Date(t.tarih);
-                            const isSelectedMonth = d.getMonth() === reportMonthIdx && d.getFullYear() === reportYear;
-                            const isCurrentMonth = d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear();
-                            
-                            const shouldInclude = mode === 'report' ? isSelectedMonth : isCurrentMonth;
+                    transactions.forEach(t => {
+                        const d = new Date(t.tarih);
+                        const isSelectedMonth = d.getMonth() === reportMonthIdx && d.getFullYear() === reportYear;
+                        const isCurrentMonth = d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear();
 
-                            if (shouldInclude) {
-                                const m = parseFloat(t.miktar) || 0;
-                                if (t.tip === 'gider') {
-                                    totalGider += m;
-                                    const kat = t.kategori || "Diğer";
-                                    giderKat[kat] = (giderKat[kat] || 0) + m;
-                                } else {
-                                    totalGelir += m;
-                                }
+                        const shouldInclude = mode === 'report' ? isSelectedMonth : isCurrentMonth;
+
+                        if (shouldInclude) {
+                            const m = parseFloat(t.miktar) || 0;
+                            if (t.tip === 'gider') {
+                                totalGider += m;
+                                const kat = t.kategori || "Diğer";
+                                giderKat[kat] = (giderKat[kat] || 0) + m;
+                            } else {
+                                totalGelir += m;
                             }
-                        });
-
-                        const summaryData = {
-                            mode,
-                            raporDonemi: mode === 'report' ? reportMonth : 'current',
-                            totalGelir,
-                            totalGider,
-                            giderKategoriler: giderKat,
-                            mevcutBakiye: bakiye
-                        };
-
-                        const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-insights`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                                'apikey': SUPABASE_ANON_KEY
-                            },
-                            body: JSON.stringify({ summaryData })
-                        });
-
-                        const result = await response.json();
-
-                        if (!response.ok) {
-                            console.error("Fonksiyon Hatası:", result);
-                            setInsight(`Hata: ${result.error || 'Bilinmeyen bir hata oluştu.'}`);
-                        } else if (result.insight) {
-                            setInsight(result.insight);
-                        } else {
-                            throw new Error("Beklenmedik yanıt formatı.");
                         }
-                    } catch (err) {
-                        console.error("İstek Hatası:", err);
-                        setInsight(`Bağlantı Hatası: ${err.message}`);
-                    } finally {
-                        setLoading(false);
+                    });
+
+                    const summaryData = {
+                        mode,
+                        raporDonemi: mode === 'report' ? reportMonth : 'current',
+                        totalGelir,
+                        totalGider,
+                        giderKategoriler: giderKat,
+                        mevcutBakiye: bakiye
+                    };
+
+                    const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-insights`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'apikey': SUPABASE_ANON_KEY
+                        },
+                        body: JSON.stringify({ summaryData })
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        console.error("Fonksiyon Hatası:", result);
+                        setInsight(`Hata: ${result.error || 'Bilinmeyen bir hata oluştu.'}`);
+                    } else if (result.insight) {
+                        setInsight(result.insight);
+                    } else {
+                        throw new Error("Beklenmedik yanıt formatı.");
                     }
-                };
+                } catch (err) {
+                    console.error("İstek Hatası:", err);
+                    setInsight(`Bağlantı Hatası: ${err.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            };
 
-                const analyzeStatement = async (file) => {
-                    setStatementLoading(true);
-                    setStatementAnalysis("");
-                    try {
-                        const reader = new FileReader();
-                        reader.onload = async (e) => {
-                            try {
-                                const typedarray = new Uint8Array(e.target.result);
-                                const pdf = await pdfjsLib.getDocument(typedarray).promise;
-                                let fullText = "";
-                                for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) {
-                                    const page = await pdf.getPage(i);
-                                    const textContent = await page.getTextContent();
-                                    fullText += textContent.items.map(item => item.str).join(" ");
-                                }
-
-                                const summaryData = {
-                                    mode: 'statement',
-                                    statementText: fullText.substring(0, 5000)
-                                };
-
-                                const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-insights`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                                        'apikey': SUPABASE_ANON_KEY
-                                    },
-                                    body: JSON.stringify({ summaryData })
-                                });
-
-                                const result = await response.json();
-                                if (result.insight) setStatementAnalysis(result.insight);
-                                else if (result.error) throw new Error(result.error);
-                                else throw new Error("Analiz başarısız.");
-                            } catch (err) {
-                                setStatementAnalysis("Hata: " + err.message);
-                            } finally {
-                                setStatementLoading(false);
+            const analyzeStatement = async (file) => {
+                setStatementLoading(true);
+                setStatementAnalysis("");
+                try {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            const typedarray = new Uint8Array(e.target.result);
+                            const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                            let fullText = "";
+                            for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) {
+                                const page = await pdf.getPage(i);
+                                const textContent = await page.getTextContent();
+                                fullText += textContent.items.map(item => item.str).join(" ");
                             }
-                        };
-                        reader.readAsArrayBuffer(file);
-                    } catch (err) {
-                        setStatementAnalysis("Hata: " + err.message);
-                        setStatementLoading(false);
-                    }
-                };
+
+                            const summaryData = {
+                                mode: 'statement',
+                                statementText: fullText.substring(0, 5000)
+                            };
+
+                            const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-insights`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                                    'apikey': SUPABASE_ANON_KEY
+                                },
+                                body: JSON.stringify({ summaryData })
+                            });
+
+                            const result = await response.json();
+                            if (result.insight) setStatementAnalysis(result.insight);
+                            else if (result.error) throw new Error(result.error);
+                            else throw new Error("Analiz başarısız.");
+                        } catch (err) {
+                            setStatementAnalysis("Hata: " + err.message);
+                        } finally {
+                            setStatementLoading(false);
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                } catch (err) {
+                    setStatementAnalysis("Hata: " + err.message);
+                    setStatementLoading(false);
+                }
+            };
 
             useEffect(() => {
                 lucide.createIcons();
@@ -756,8 +762,8 @@
                 const toplam = data.reduce((acc, curr) => {
                     if (curr.tekrarli) {
                         const txDate = new Date(curr.tarih);
-                        const isFutureMonth = txDate.getFullYear() > now.getFullYear() || 
-                                            (txDate.getFullYear() === now.getFullYear() && txDate.getMonth() > now.getMonth());
+                        const isFutureMonth = txDate.getFullYear() > now.getFullYear() ||
+                            (txDate.getFullYear() === now.getFullYear() && txDate.getMonth() > now.getMonth());
                         if (isFutureMonth) {
                             return acc;
                         }
@@ -773,7 +779,7 @@
                 const permission = await Notification.requestPermission();
                 setNotificationPermission(permission);
                 if (permission === 'granted') {
-                    new Notification("Finans", { 
+                    new Notification("Finans", {
                         body: "Ödeme bildirimleri başarıyla etkinleştirildi! 🔔",
                     });
                 }
@@ -781,25 +787,25 @@
 
             const checkAndNotifyUpcoming = (data) => {
                 if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-                
+
                 const now = new Date();
                 const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
-                
+
                 const todayKey = `notified_${now.toISOString().split('T')[0]}`;
                 let notifiedIds = [];
                 try {
                     notifiedIds = JSON.parse(localStorage.getItem(todayKey) || "[]");
-                } catch(e) { notifiedIds = []; }
-                
+                } catch (e) { notifiedIds = []; }
+
                 let newlyNotified = false;
 
                 data.forEach(t => {
                     const txDate = new Date(t.tarih);
-                    // Proactive check: expense, in the future, within 24 hours, and not already notified today
-                    if (t.tip === 'gider' && txDate > now && txDate <= tomorrow) {
+                    // Proactive check: in the future, within 24 hours, and not already notified today
+                    if (txDate > now && txDate <= tomorrow) {
                         if (!notifiedIds.includes(t.id)) {
-                            new Notification("Yaklaşan Ödeme Hatırlatıcısı", {
-                                body: `${t.aciklama} - ${formatCurrency(t.miktar)} tutarındaki ödemeniz yaklaşıyor.`,
+                            new Notification("Yaklaşan İşlem Hatırlatıcısı", {
+                                body: `${t.aciklama} - ${formatCurrency(t.miktar)} tutarındaki işleminiz yaklaşıyor.`,
                                 tag: t.id // Prevents multiple notifications for same tx if app reloads
                             });
                             notifiedIds.push(t.id);
@@ -838,10 +844,10 @@
                 if (!newGoal.trim()) return;
                 const { data, error } = await supabase
                     .from('goals')
-                    .insert([{ 
-                        text: newGoal.trim(), 
+                    .insert([{
+                        text: newGoal.trim(),
                         user_id: session.user.id,
-                        completed: false 
+                        completed: false
                     }]);
                 if (!error) {
                     setNewGoal("");
@@ -904,11 +910,11 @@
                             ...baseTx,
                             tarih: currDate.toISOString()
                         });
-                        
+
                         // Advance by 1 month
                         const nextMonth = new Date(currDate);
                         nextMonth.setMonth(nextMonth.getMonth() + 1);
-                        
+
                         // Handle month overflow (e.g., Jan 31 -> Feb 28)
                         if (nextMonth.getDate() !== currDate.getDate()) {
                             nextMonth.setDate(0);
@@ -1004,7 +1010,7 @@
                     .from('transactions')
                     .update({ tamamlandi: newStatus })
                     .eq('id', item.id);
-                
+
                 if (error) {
                     console.error("Güncelleme hatası:", error);
                     alert("İşlem durumu güncellenirken bir hata oluştu. Lütfen veritabanınızda 'tamamlandi' sütununun olduğundan emin olun.\n\nSQL: ALTER TABLE transactions ADD COLUMN tamamlandi BOOLEAN DEFAULT FALSE;");
@@ -1022,11 +1028,12 @@
 
             const now = new Date();
             const upcomingTransactions = transactions
-                .filter(t => new Date(t.tarih) > now && t.tip === 'gider')
+                .filter(t => new Date(t.tarih) > now)
                 .sort((a, b) => new Date(a.tarih) - new Date(b.tarih))
                 .slice(0, 3);
 
-            const pastTransactions = transactions.filter(t => new Date(t.tarih) <= now);
+            const currentMonthStr = now.toISOString().slice(0, 7);
+            const pastTransactions = transactions.filter(t => new Date(t.tarih) <= now && (t.tarih || "").startsWith(currentMonthStr));
             const allUpcoming = transactions
                 .filter(t => new Date(t.tarih) > now)
                 .sort((a, b) => new Date(a.tarih) - new Date(b.tarih));
@@ -1040,7 +1047,7 @@
                     html2canvas: { scale: 2, useCORS: true, logging: false },
                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
                 };
-                
+
                 html2pdf().set(opt).from(element).save();
             };
 
@@ -1059,7 +1066,7 @@
                                             <h3 className="font-bold text-lg">{t('rapor_baslik')}</h3>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button 
+                                            <button
                                                 onClick={exportToPDF}
                                                 className="p-2 hover:bg-primary/10 text-primary rounded-full transition-colors"
                                                 title={t('pdf_indir')}
@@ -1072,7 +1079,7 @@
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 const d = new Date(reportMonth + "-01");
                                                 d.setMonth(d.getMonth() - 1);
@@ -1084,14 +1091,14 @@
                                             <Icon name="chevron-left" className="w-4 h-4" />
                                         </button>
                                         <div className="flex-1 relative">
-                                            <input 
-                                                type="month" 
-                                                value={reportMonth} 
+                                            <input
+                                                type="month"
+                                                value={reportMonth}
                                                 onChange={(e) => { setReportMonth(e.target.value); setReportAiInsight(""); }}
                                                 className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-2 text-sm font-bold text-center outline-none focus:ring-2 focus:ring-primary appearance-none"
                                             />
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 const d = new Date(reportMonth + "-01");
                                                 d.setMonth(d.getMonth() + 1);
@@ -1108,10 +1115,10 @@
                                     {/* Monthly Summary */}
                                     {(() => {
                                         const mGelir = transactions
-                                            .filter(t => t.tip === 'gelir' && t.tarih.startsWith(reportMonth))
+                                            .filter(t => t.tip === 'gelir' && (t.tarih || "").startsWith(reportMonth))
                                             .reduce((acc, t) => acc + (parseFloat(t.miktar) || 0), 0);
                                         const mGider = transactions
-                                            .filter(t => t.tip === 'gider' && t.tarih.startsWith(reportMonth))
+                                            .filter(t => t.tip === 'gider' && (t.tarih || "").startsWith(reportMonth))
                                             .reduce((acc, t) => acc + (parseFloat(t.miktar) || 0), 0);
                                         const mBakiye = mGelir - mGider;
 
@@ -1150,31 +1157,31 @@
                                         <div className="space-y-3">
                                             {Object.entries(
                                                 transactions
-                                                    .filter(t => t.tip === 'gider' && t.tarih.startsWith(reportMonth))
+                                                    .filter(t => t.tip === 'gider' && (t.tarih || "").startsWith(reportMonth))
                                                     .reduce((acc, t) => {
                                                         const kat = t.kategori || (language === 'tr' ? "Diğer" : "Other");
                                                         acc[kat] = (acc[kat] || 0) + (parseFloat(t.miktar) || 0);
                                                         return acc;
                                                     }, {})
                                             )
-                                            .sort((a, b) => b[1] - a[1])
-                                            .slice(0, 4)
-                                            .map(([kat, tutar]) => (
-                                                <div key={`report-kat-${kat}`} className="flex items-center gap-3">
-                                                    <div className="flex-1">
-                                                        <div className="flex justify-between text-sm mb-1">
-                                                            <span className="font-bold text-on-surface">{kat}</span>
-                                                            <span className="font-medium text-on-surface-variant">{formatCurrency(tutar, 0)}</span>
-                                                        </div>
-                                                        <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
-                                                            <div 
-                                                                className="bg-primary h-full rounded-full" 
-                                                                style={{ width: `${Math.min(100, (tutar / Math.max(1, transactions.filter(t => t.tip === 'gider' && t.tarih.startsWith(reportMonth)).reduce((acc, t) => acc + (parseFloat(t.miktar) || 0), 0))) * 100)}%` }}
-                                                            ></div>
+                                                .sort((a, b) => b[1] - a[1])
+                                                .slice(0, 4)
+                                                .map(([kat, tutar]) => (
+                                                    <div key={`report-kat-${kat}`} className="flex items-center gap-3">
+                                                        <div className="flex-1">
+                                                            <div className="flex justify-between text-sm mb-1">
+                                                                <span className="font-bold text-on-surface">{kat}</span>
+                                                                <span className="font-medium text-on-surface-variant">{formatCurrency(tutar, 0)}</span>
+                                                            </div>
+                                                            <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="bg-primary h-full rounded-full"
+                                                                    style={{ width: `${Math.min(100, (tutar / Math.max(1, transactions.filter(t => t.tip === 'gider' && (t.tarih || "").startsWith(reportMonth)).reduce((acc, t) => acc + (parseFloat(t.miktar) || 0), 0))) * 100)}%` }}
+                                                                ></div>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                ))}
                                         </div>
                                     </section>
 
@@ -1195,7 +1202,7 @@
                                                     ) : reportAiInsight}
                                                 </p>
                                             ) : (
-                                                <button 
+                                                <button
                                                     onClick={() => fetchAiInsight('report')}
                                                     className="w-full bg-primary text-on-primary font-bold py-3 rounded-xl shadow-md active:scale-95 transition-transform text-sm data-html2canvas-ignore"
                                                 >
@@ -1223,7 +1230,7 @@
                                                         ) : statementAnalysis}
                                                     </p>
                                                     {!statementLoading && (
-                                                        <button 
+                                                        <button
                                                             onClick={() => { setStatementAnalysis(""); }}
                                                             className="text-[10px] font-bold text-tertiary/60 hover:text-tertiary uppercase tracking-tighter transition-colors"
                                                         >
@@ -1237,10 +1244,10 @@
                                                     <label className="w-full bg-tertiary text-on-primary font-bold py-3 rounded-xl shadow-md active:scale-95 transition-transform text-sm flex items-center justify-center gap-2 cursor-pointer">
                                                         <Icon name="upload" className="w-4 h-4" />
                                                         {t('ekstre_yukle')}
-                                                        <input 
-                                                            type="file" 
-                                                            accept=".pdf" 
-                                                            className="hidden" 
+                                                        <input
+                                                            type="file"
+                                                            accept=".pdf"
+                                                            className="hidden"
                                                             onChange={(e) => {
                                                                 if (e.target.files?.[0]) analyzeStatement(e.target.files[0]);
                                                             }}
@@ -1259,763 +1266,876 @@
                             </div>
                         </div>
                     )}
-                <main>
-                    {/* Notifications Modal (All Upcoming) */}
-                    {showNotifications && (
-                        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-                            <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
-                                <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
-                                    <h3 className="font-bold text-lg">{t('tum_yaklasan')}</h3>
-                                    <button onClick={() => setShowNotifications(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
-                                        <Icon name="x" className="w-5 h-5" />
-                                    </button>
-                                </div>
-                                <div className="overflow-y-auto p-4 flex-1">
-                                    {notificationPermission !== 'granted' && (
-                                        <div className="mb-6 p-4 bg-primary/10 rounded-xl border border-primary/20 text-center">
-                                            <Icon name="bell-ring" className="w-8 h-8 text-primary mx-auto mb-2 opacity-80" />
-                                            <h4 className="font-bold text-primary text-sm mb-1">{t('bildirimler_kapali')}</h4>
-                                            <p className="text-on-surface-variant text-[11px] mb-3">{t('bildirim_ac_desc')}</p>
-                                            <button 
-                                                onClick={requestNotificationPermission}
-                                                className="w-full bg-primary text-on-primary font-bold py-2 rounded-lg text-xs shadow-md active:scale-95 transition-transform"
-                                            >
-                                                {t('bildirimleri_ac')}
-                                            </button>
-                                        </div>
-                                    )}
-                                    {allUpcoming.length === 0 ? (
-                                        <div className="text-center text-sm text-on-surface-variant py-8">
-                                            <Icon name="calendar" className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                                            {language === 'tr' ? 'Yaklaşan bir işlem bulunmuyor.' : 'No upcoming transactions found.'}
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {allUpcoming.map(t => (
-                                                <div key={`notif-${t.id}`} className="flex items-center gap-4 p-3 bg-surface-container-low rounded-xl cursor-pointer active:scale-[0.98] transition-transform" onClick={() => { setShowNotifications(false); openEditModal(t); }}>
-                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${t.tip === 'gelir' ? 'bg-secondary-container text-on-secondary-container' : 'bg-tertiary-fixed text-tertiary'}`}>
-                                                        <Icon name={t.tip === 'gelir' ? 'arrow-down-to-line' : 'alert-circle'} className="w-5 h-5" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="font-bold text-on-surface truncate text-sm">{t.aciklama}</div>
-                                                        <div className="text-on-surface-variant text-xs">{formatedDateString(t.tarih)}</div>
-                                                    </div>
-                                                    <div className={`font-bold text-sm ${t.tip === 'gelir' ? 'text-secondary' : 'text-error'}`}>
-                                                        {t.tip === 'gelir' ? '+' : '-'} {formatCurrency(t.miktar, 0, language)}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Settings Modal */}
-                    {showSettings && (
-                        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-                            <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col">
-                                <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
-                                    <h3 className="font-bold text-lg">{t('ayarlar')}</h3>
-                                    <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
-                                        <Icon name="x" className="w-5 h-5" />
-                                    </button>
-                                </div>
-                                <div className="p-6 space-y-6">
-                                    {/* Notifications Setting */}
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                                <Icon name="bell" className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <div className="font-bold text-on-surface">{t('bildirimler')}</div>
-                                                <div className="text-xs text-on-surface-variant font-medium">
-                                                    {notificationPermission === 'granted' ? t('ac') : t('kapali')}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button 
-                                            onClick={requestNotificationPermission}
-                                            className={`w-12 h-6 rounded-full relative flex items-center px-1 transition-colors duration-300 ${notificationPermission === 'granted' ? 'bg-secondary' : 'bg-surface-container-high'}`}
-                                        >
-                                            <div className={`w-4 h-4 bg-white rounded-full absolute shadow-sm transition-transform duration-300 ${notificationPermission === 'granted' ? 'right-1' : 'left-1'}`}></div>
+                    <main>
+                        {/* Notifications Modal (All Upcoming) */}
+                        {showNotifications && (
+                            <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
+                                    <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+                                        <h3 className="font-bold text-lg">{t('tum_yaklasan')}</h3>
+                                        <button onClick={() => setShowNotifications(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+                                            <Icon name="x" className="w-5 h-5" />
                                         </button>
                                     </div>
-
-                                    {/* Category Management */}
-                                    <div className="flex justify-between items-center cursor-pointer group" onClick={() => { setShowSettings(false); setShowCategoryManager(true); }}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
-                                                <Icon name="tags" className="w-5 h-5" />
+                                    <div className="overflow-y-auto p-4 flex-1">
+                                        {notificationPermission !== 'granted' && (
+                                            <div className="mb-6 p-4 bg-primary/10 rounded-xl border border-primary/20 text-center">
+                                                <Icon name="bell-ring" className="w-8 h-8 text-primary mx-auto mb-2 opacity-80" />
+                                                <h4 className="font-bold text-primary text-sm mb-1">{t('bildirimler_kapali')}</h4>
+                                                <p className="text-on-surface-variant text-[11px] mb-3">{t('bildirim_ac_desc')}</p>
+                                                <button
+                                                    onClick={requestNotificationPermission}
+                                                    className="w-full bg-primary text-on-primary font-bold py-2 rounded-lg text-xs shadow-md active:scale-95 transition-transform"
+                                                >
+                                                    {t('bildirimleri_ac')}
+                                                </button>
                                             </div>
-                                            <div>
-                                                <div className="font-bold text-on-surface">{t('kategorileri_yonet')}</div>
-                                                <div className="text-xs text-on-surface-variant font-medium">{t('kategorileri_yonet_desc')}</div>
+                                        )}
+                                        {allUpcoming.length === 0 ? (
+                                            <div className="text-center text-sm text-on-surface-variant py-8">
+                                                <Icon name="calendar" className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                                                {language === 'tr' ? 'Yaklaşan bir işlem bulunmuyor.' : 'No upcoming transactions found.'}
                                             </div>
-                                        </div>
-                                        <Icon name="chevron-right" className="w-5 h-5 text-outline-variant group-hover:text-primary transition-colors" />
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {allUpcoming.map(t => (
+                                                    <div key={`notif-${t.id}`} className="flex items-center gap-4 p-3 bg-surface-container-low rounded-xl cursor-pointer active:scale-[0.98] transition-transform" onClick={() => { setShowNotifications(false); openEditModal(t); }}>
+                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${t.tip === 'gelir' ? 'bg-secondary-container text-on-secondary-container' : 'bg-tertiary-fixed text-tertiary'}`}>
+                                                            <Icon name={t.tip === 'gelir' ? 'arrow-down-to-line' : 'alert-circle'} className="w-5 h-5" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-bold text-on-surface truncate text-sm">{t.aciklama}</div>
+                                                            <div className="text-on-surface-variant text-xs">{formatedDateString(t.tarih)}</div>
+                                                        </div>
+                                                        <div className={`font-bold text-sm ${t.tip === 'gelir' ? 'text-secondary' : 'text-error'}`}>
+                                                            {t.tip === 'gelir' ? '+' : '-'} {formatCurrency(t.miktar, 0, language)}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-
-                                    {/* Language Setting */}
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                                <Icon name="languages" className="w-5 h-5" />
-                                            </div>
-                                            <div className="font-bold text-on-surface">{t('dil')}</div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button 
-                                                onClick={() => setLanguage('tr')}
-                                                className={`py-2 px-4 rounded-xl text-sm font-bold border-2 transition-all ${language === 'tr' ? 'border-primary bg-primary/5 text-primary' : 'border-outline-variant/30 text-on-surface-variant'}`}
-                                            >
-                                                Türkçe
-                                            </button>
-                                            <button 
-                                                onClick={() => setLanguage('en')}
-                                                className={`py-2 px-4 rounded-xl text-sm font-bold border-2 transition-all ${language === 'en' ? 'border-primary bg-primary/5 text-primary' : 'border-outline-variant/30 text-on-surface-variant'}`}
-                                            >
-                                                English
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="p-4 bg-surface-container-low border-t border-outline-variant/30">
-                                    <button onClick={() => setShowSettings(false)} className="w-full py-3 bg-primary text-on-primary font-bold rounded-xl shadow-md active:scale-95 transition-transform text-sm">
-                                        {t('kapat')}
-                                    </button>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Category Manager Modal */}
-                    {showCategoryManager && (
-                        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-                            <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
-                                <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
-                                    <h3 className="font-bold text-lg">{t('kategorileri_yonet')}</h3>
-                                    <button onClick={() => setShowCategoryManager(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
-                                        <Icon name="x" className="w-5 h-5" />
-                                    </button>
+                        {/* Settings Modal */}
+                        {showSettings && (
+                            <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col">
+                                    <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+                                        <h3 className="font-bold text-lg">{t('ayarlar')}</h3>
+                                        <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+                                            <Icon name="x" className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="p-6 space-y-6">
+                                        {/* Notifications Setting */}
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                                    <Icon name="bell" className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-on-surface">{t('bildirimler')}</div>
+                                                    <div className="text-xs text-on-surface-variant font-medium">
+                                                        {notificationPermission === 'granted' ? t('ac') : t('kapali')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={requestNotificationPermission}
+                                                className={`w-12 h-6 rounded-full relative flex items-center px-1 transition-colors duration-300 ${notificationPermission === 'granted' ? 'bg-secondary' : 'bg-surface-container-high'}`}
+                                            >
+                                                <div className={`w-4 h-4 bg-white rounded-full absolute shadow-sm transition-transform duration-300 ${notificationPermission === 'granted' ? 'right-1' : 'left-1'}`}></div>
+                                            </button>
+                                        </div>
+
+                                        {/* Category Management */}
+                                        <div className="flex justify-between items-center cursor-pointer group" onClick={() => { setShowSettings(false); setShowCategoryManager(true); }}>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
+                                                    <Icon name="tags" className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-on-surface">{t('kategorileri_yonet')}</div>
+                                                    <div className="text-xs text-on-surface-variant font-medium">{t('kategorileri_yonet_desc')}</div>
+                                                </div>
+                                            </div>
+                                            <Icon name="chevron-right" className="w-5 h-5 text-outline-variant group-hover:text-primary transition-colors" />
+                                        </div>
+
+                                        {/* Language Setting */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                                    <Icon name="languages" className="w-5 h-5" />
+                                                </div>
+                                                <div className="font-bold text-on-surface">{t('dil')}</div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    onClick={() => setLanguage('tr')}
+                                                    className={`py-2 px-4 rounded-xl text-sm font-bold border-2 transition-all ${language === 'tr' ? 'border-primary bg-primary/5 text-primary' : 'border-outline-variant/30 text-on-surface-variant'}`}
+                                                >
+                                                    Türkçe
+                                                </button>
+                                                <button
+                                                    onClick={() => setLanguage('en')}
+                                                    className={`py-2 px-4 rounded-xl text-sm font-bold border-2 transition-all ${language === 'en' ? 'border-primary bg-primary/5 text-primary' : 'border-outline-variant/30 text-on-surface-variant'}`}
+                                                >
+                                                    English
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 bg-surface-container-low border-t border-outline-variant/30">
+                                        <button onClick={() => setShowSettings(false)} className="w-full py-3 bg-primary text-on-primary font-bold rounded-xl shadow-md active:scale-95 transition-transform text-sm">
+                                            {t('kapat')}
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="p-4 border-b border-outline-variant/30 flex gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder={t('yeni_kategori_adi')}
-                                        value={newCategoryName}
-                                        onChange={e => setNewCategoryName(e.target.value)}
-                                        className="flex-1 bg-surface-container-low border-transparent focus:border-transparent focus:ring-0 rounded-xl px-4 py-2 outline-none"
-                                    />
-                                    <button onClick={handleAddCategory} className="bg-primary text-on-primary p-2 px-4 rounded-xl font-bold active:scale-95 transition-transform">
-                                        {t('ekle')}
-                                    </button>
+                            </div>
+                        )}
+
+                        {/* Category Manager Modal */}
+                        {showCategoryManager && (
+                            <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
+                                    <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+                                        <h3 className="font-bold text-lg">{t('kategorileri_yonet')}</h3>
+                                        <button onClick={() => setShowCategoryManager(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+                                            <Icon name="x" className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="p-4 border-b border-outline-variant/30 flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder={t('yeni_kategori_adi')}
+                                            value={newCategoryName}
+                                            onChange={e => setNewCategoryName(e.target.value)}
+                                            className="flex-1 bg-surface-container-low border-transparent focus:border-transparent focus:ring-0 rounded-xl px-4 py-2 outline-none"
+                                        />
+                                        <button onClick={handleAddCategory} className="bg-primary text-on-primary p-2 px-4 rounded-xl font-bold active:scale-95 transition-transform">
+                                            {t('ekle')}
+                                        </button>
+                                    </div>
+                                    <div className="overflow-y-auto p-4 flex-1">
+                                        {categories.length === 0 ? (
+                                            <div className="text-center text-sm text-on-surface-variant py-4">{language === 'tr' ? 'Henüz kategori eklenmemiş.' : 'No categories added yet.'}</div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {categories.map(cat => (
+                                                    <div key={cat.id} className="flex justify-between items-center p-3 bg-surface-container-low rounded-xl">
+                                                        <span className="font-medium">{cat.isim}</span>
+                                                        <button onClick={() => handleDeleteCategory(cat.id)} className="text-error p-2 hover:bg-error/10 rounded-lg transition-colors">
+                                                            <Icon name="trash-2" className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="overflow-y-auto p-4 flex-1">
-                                    {categories.length === 0 ? (
-                                        <div className="text-center text-sm text-on-surface-variant py-4">{language === 'tr' ? 'Henüz kategori eklenmemiş.' : 'No categories added yet.'}</div>
-                                    ) : (
+                            </div>
+                        )}
+
+                        {/* All Transactions Modal */}
+                        {showAllTxModal && (
+                            <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+                                    <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+                                        <h2 className="text-lg font-bold">{t('tum_islemler')}</h2>
+                                        <button onClick={() => setShowAllTxModal(false)} className="text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-container-high transition-colors">
+                                            <Icon name="x" className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="p-4 bg-surface-container-low border-b border-outline-variant/30 flex flex-col gap-3">
+                                        <div className="flex gap-2 items-center">
+                                            <input
+                                                type="month"
+                                                value={allTxMonthFilter}
+                                                onChange={(e) => setAllTxMonthFilter(e.target.value)}
+                                                className="flex-1 bg-surface-container-highest text-sm font-bold text-on-surface-variant rounded-xl px-4 py-2 border-none focus:ring-2 focus:ring-primary outline-none"
+                                            />
+                                            {allTxMonthFilter && (
+                                                <button
+                                                    onClick={() => setAllTxMonthFilter("")}
+                                                    className="px-4 py-2 bg-surface-container-highest text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition-colors font-bold text-sm"
+                                                >
+                                                    {language === 'tr' ? 'Temizle' : 'Clear'}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {categories.length > 0 && (
+                                            <div className="flex overflow-x-auto pb-2 gap-2 snap-x hide-scrollbar">
+                                                <button
+                                                    onClick={() => setAllTxCategoryFilter("")}
+                                                    className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors snap-start ${allTxCategoryFilter === "" ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-highest text-on-surface-variant hover:bg-surface-container-highest/80'}`}
+                                                >
+                                                    {language === 'tr' ? 'Tümü' : 'All'}
+                                                </button>
+                                                {categories.map(cat => (
+                                                    <button
+                                                        key={cat.id}
+                                                        onClick={() => setAllTxCategoryFilter(cat.isim)}
+                                                        className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors snap-start ${allTxCategoryFilter === cat.isim ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-highest text-on-surface-variant hover:bg-surface-container-highest/80'}`}
+                                                    >
+                                                        {cat.isim}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="overflow-y-auto p-4 flex-1 space-y-px bg-surface-container-low">
+                                        {(() => {
+                                            const filteredAll = transactions.filter(tx => {
+                                                const matchCategory = allTxCategoryFilter === "" || tx.kategori === allTxCategoryFilter;
+                                                const matchMonth = allTxMonthFilter === "" || (tx.tarih || "").startsWith(allTxMonthFilter);
+                                                return matchCategory && matchMonth;
+                                            });
+
+                                            if (filteredAll.length === 0) {
+                                                return (
+                                                    <div className="bg-surface-container-lowest p-8 text-center text-on-surface-variant text-sm rounded-xl">
+                                                        {language === 'tr' ? 'İşlem bulunamadı.' : 'No transactions found.'}
+                                                    </div>
+                                                );
+                                            }
+
+                                            return filteredAll.map((item, index) => (
+                                                <div key={item.id} className={`bg-surface-container-lowest p-4 flex items-center gap-3 cursor-pointer hover:bg-surface-container-high transition-colors group ${item.tamamlandi ? 'opacity-50' : ''} ${index === 0 ? 'rounded-t-xl' : ''} ${index === filteredAll.length - 1 ? 'rounded-b-xl' : ''}`}>
+                                                    <div onClick={(e) => handleToggleComplete(e, item)} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.tamamlandi ? 'bg-secondary text-on-primary' : (item.tip === 'gelir' ? 'bg-secondary-container' : 'bg-surface-container-high')}`}>
+                                                        {item.tamamlandi
+                                                            ? <Icon name="check" className="w-5 h-5" />
+                                                            : (item.tip === 'gelir'
+                                                                ? <Icon name="arrow-down-to-line" className="text-on-secondary-container w-5 h-5" />
+                                                                : <Icon name="shopping-bag" className="text-on-surface-variant w-5 h-5" />
+                                                            )
+                                                        }
+                                                    </div>
+                                                    <div className="flex-1 min-w-0" onClick={() => { setShowAllTxModal(false); openEditModal(item); }}>
+                                                        <div className="font-bold text-on-surface truncate group-hover:text-primary transition-colors">{item.aciklama}</div>
+                                                        <div className="text-xs text-on-surface-variant flex items-center gap-2 mt-0.5">
+                                                            <span>{formatedDateString(item.tarih)}</span>
+                                                            {item.kategori && <span className="text-[10px] px-2 py-0.5 bg-outline-variant/30 text-on-surface-variant rounded-full font-medium whitespace-nowrap">{item.kategori}</span>}
+                                                            {item.tekrarli && <Icon name="repeat" className="inline w-3 h-3 text-primary shrink-0" />}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right flex flex-col items-end gap-1">
+                                                        <div className={`font-bold ${item.tamamlandi ? 'line-through text-on-surface-variant' : (item.tip === 'gelir' ? 'text-secondary' : 'text-error')}`}>
+                                                            {item.tip === 'gelir' ? '+' : '-'} {formatCurrency(item.miktar, 0, language)}
+                                                        </div>
+                                                        <div className="flex gap-1 items-center">
+                                                            <button onClick={(e) => handleToggleComplete(e, item)} className={`p-2 rounded-lg transition-colors active:scale-95 ${item.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title={t('tamamla')}>
+                                                                <Icon name="check-circle-2" className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={() => { setShowAllTxModal(false); openEditModal(item); }} className="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-low rounded-lg active:scale-95" title={t('duzenle')}>
+                                                                <Icon name="pencil" className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteTx(item.id); }} className="p-2 text-on-surface-variant hover:text-error transition-colors bg-surface-container-low rounded-lg active:scale-95" title={t('sil')}>
+                                                                <Icon name="trash-2" className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ));
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Quick Add Transaction Modal */}
+                        {showQuickAdd && (
+                            <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+                                    <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+                                        <h3 className="font-bold text-lg">{t('hizli_islem_ekle')}</h3>
+                                        <button onClick={() => setShowQuickAdd(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+                                            <Icon name="x" className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="overflow-y-auto p-5 space-y-px">
+                                        <div className="bg-surface-container-low rounded-2xl p-1 space-y-px">
+                                            {/* Segmented Control */}
+                                            <div className="bg-surface-container-lowest p-4 rounded-t-xl">
+                                                <div className="flex bg-surface-container-high p-1 rounded-full relative">
+                                                    <button
+                                                        onClick={() => setIsHarcama(true)}
+                                                        className={`flex-1 py-2 text-sm font-bold rounded-full transition-all z-10 ${isHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
+                                                    >
+                                                        {t('harcama')}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setIsHarcama(false)}
+                                                        className={`flex-1 py-2 text-sm font-bold rounded-full transition-all z-10 ${!isHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
+                                                    >
+                                                        {t('gelir')}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Amount Row */}
+                                            <div className="bg-surface-container-lowest p-4 flex justify-between items-center bg-surface-container-lowest">
+                                                <span className="text-on-surface-variant font-medium">{t('tutar')} (₺)</span>
+                                                <input
+                                                    type="number"
+                                                    value={tutar}
+                                                    onChange={(e) => setTutar(e.target.value)}
+                                                    className="text-right font-bold text-xl text-primary bg-transparent border-none focus:ring-0 p-0 placeholder:text-outline-variant w-1/2"
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+
+                                            {/* Description Row */}
+                                            <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
+                                                <span className="text-on-surface-variant font-medium">{t('aciklama')}</span>
+                                                <input
+                                                    type="text"
+                                                    value={aciklama}
+                                                    onChange={(e) => setAciklama(e.target.value)}
+                                                    className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 placeholder:text-outline-variant w-1/2"
+                                                    placeholder="örn: Kahve"
+                                                />
+                                            </div>
+
+                                            {/* Date Row */}
+                                            <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
+                                                <span className="text-on-surface-variant font-medium">{t('tarih')}</span>
+                                                <input
+                                                    type="date"
+                                                    value={tarih}
+                                                    onChange={(e) => setTarih(e.target.value)}
+                                                    className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 w-1/2"
+                                                />
+                                            </div>
+
+                                            {/* Category Row */}
+                                            <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
+                                                <span className="text-on-surface-variant font-medium">{t('kategori')}</span>
+                                                <select
+                                                    value={secilenKategori}
+                                                    onChange={(e) => setSecilenKategori(e.target.value)}
+                                                    className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 w-1/2 font-medium"
+                                                >
+                                                    <option value="">{t('seciniz')}</option>
+                                                    {categories.map((cat, index) => (
+                                                        <option key={`${cat.id}-${index}`} value={cat.isim}>{cat.isim}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            {/* Switch Row */}
+                                            <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
+                                                <span className="text-on-surface-variant font-medium">{t('tekrarli_islem')}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTekrarli(!tekrarli)}
+                                                    className={`w-12 h-6 rounded-full relative flex items-center px-1 transition-colors duration-300 ${tekrarli ? 'bg-secondary' : 'bg-surface-container-high'}`}
+                                                >
+                                                    <div className={`w-4 h-4 bg-white rounded-full absolute shadow-sm transition-transform duration-300 ${tekrarli ? 'right-1' : 'left-1'}`}></div>
+                                                </button>
+                                            </div>
+
+                                            {/* End Date Row - Conditional */}
+                                            {tekrarli && (
+                                                <div className="bg-surface-container-lowest p-4 rounded-b-xl flex justify-between items-center border-t border-surface-container-low animate-in slide-in-from-top duration-200">
+                                                    <span className="text-on-surface-variant font-medium">{t('son_tekrar')}</span>
+                                                    <input
+                                                        type="date"
+                                                        value={tekrarBitisTarihi}
+                                                        onChange={(e) => setTekrarBitisTarihi(e.target.value)}
+                                                        className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 w-1/2"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            onClick={handleEkle}
+                                            disabled={loading}
+                                            className="w-full bg-primary text-on-primary font-bold py-4 rounded-full shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
+                                        >
+                                            {loading ? <Icon name="loader-2" className="animate-spin w-5 h-5" /> : <Icon name="plus" className="w-5 h-5" />}
+                                            {loading ? t('ekleniyor') : t('ekle')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Edit Transaction Modal */}
+                        {editingTx && (
+                            <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col">
+                                    <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+                                        <h3 className="font-bold text-lg">{t('islem_duzenle')}</h3>
+                                        <button onClick={() => setEditingTx(null)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+                                            <Icon name="x" className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="p-5 space-y-4">
+                                        <div className="flex bg-surface-container-high p-1 rounded-full relative">
+                                            <button
+                                                onClick={() => setEditIsHarcama(true)}
+                                                className={`flex-1 py-1.5 text-sm font-bold rounded-full transition-all z-10 ${editIsHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
+                                            >
+                                                {t('harcama')}
+                                            </button>
+                                            <button
+                                                onClick={() => setEditIsHarcama(false)}
+                                                className={`flex-1 py-1.5 text-sm font-bold rounded-full transition-all z-10 ${!editIsHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
+                                            >
+                                                {t('gelir')}
+                                            </button>
+                                        </div>
+                                        <div className="space-y-3 pt-2">
+                                            <div>
+                                                <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('tutar')} (₺)</label>
+                                                <input type="number" value={editTutar} onChange={e => setEditTutar(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary font-bold text-primary" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('aciklama')}</label>
+                                                <input type="text" value={editAciklama} onChange={e => setEditAciklama(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('tarih')}</label>
+                                                <input type="date" value={editTarih} onChange={e => setEditTarih(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('kategori')}</label>
+                                                <select value={editKategori} onChange={e => setEditKategori(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary">
+                                                    <option value="">{t('seciniz')}</option>
+                                                    {categories.map(cat => <option key={cat.id} value={cat.isim}>{cat.isim}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="flex justify-between items-center bg-surface-container-low rounded-xl px-4 py-3">
+                                                <span className="text-sm font-bold text-on-surface-variant">{t('tekrarli_islem')}</span>
+                                                <button type="button" onClick={() => setEditTekrarli(!editTekrarli)} className={`w-10 h-5 rounded-full relative flex items-center px-1 transition-colors duration-300 ${editTekrarli ? 'bg-secondary' : 'bg-outline-variant'}`}>
+                                                    <div className={`w-3.5 h-3.5 bg-white rounded-full absolute shadow-sm transition-transform duration-300 ${editTekrarli ? 'right-1' : 'left-1'}`}></div>
+                                                </button>
+                                            </div>
+                                            {editTekrarli && (
+                                                <div className="bg-surface-container-low rounded-xl px-4 py-3 animate-in slide-in-from-top duration-200">
+                                                    <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('son_tekrar')}</label>
+                                                    <input type="date" value={editTekrarBitisTarihi} onChange={e => setEditTekrarBitisTarihi(e.target.value)} className="w-full bg-transparent rounded-xl mt-1 outline-none border-none focus:ring-0 p-0 text-sm" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button onClick={handleUpdateTx} disabled={editLoading} className="w-full bg-primary text-on-primary font-bold py-3 rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 mt-2">
+                                            {editLoading ? t('kaydediliyor') : t('kaydet')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Top Navigation */}
+                        <header className="bg-[#faf9fe]/80 backdrop-blur-2xl w-full top-0 sticky z-50 flex justify-between items-end px-6 pt-12 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 flex items-center justify-center">
+                                    <img src="UX Design/Logo/FinansLogo.png" alt="Logo" className="w-full h-full object-contain" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-xl font-black tracking-tighter text-primary leading-tight">Finans</span>
+                                    <span className="text-[10px] font-bold text-on-surface-variant opacity-80">{session.user.email}</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={() => setShowNotifications(true)}
+                                    className="text-slate-900 hover:opacity-70 transition-opacity active:scale-95 duration-200 relative"
+                                >
+                                    <Icon name="bell" className="w-6 h-6" />
+                                    {transactions.filter(t => new Date(t.tarih) > now).length > 0 && (
+                                        <span className="absolute -top-1 -right-1 bg-error text-on-primary text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                                            {transactions.filter(t => new Date(t.tarih) > now).length}
+                                        </span>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => supabase.auth.signOut()}
+                                    className="text-error hover:opacity-70 transition-opacity active:scale-95 duration-200 bg-error/10 p-2 rounded-full"
+                                    title={t('cikis')}
+                                >
+                                    <Icon name="log-out" className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </header>
+
+                        <div className="px-6 pt-8 max-w-md mx-auto space-y-10 pb-24">
+                            {/* Hero Balance Section */}
+                            <section className="space-y-1">
+                                <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">{t('finansal_odagim')}</h1>
+                                <div className="pt-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-[2.8rem] font-black leading-none tracking-tight text-secondary">
+                                            {showBakiye ? (
+                                                new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(bakiye)
+                                            ) : (() => {
+                                                const amount = Math.abs(Math.round(bakiye));
+                                                const str = amount.toString();
+                                                const masked = str[0] + "*".repeat(str.length - 1);
+                                                const sign = bakiye < 0 ? "-" : "";
+                                                return `${sign}${masked} ₺`;
+                                            })()}
+                                        </div>
+                                        <button
+                                            onClick={() => setShowBakiye(!showBakiye)}
+                                            className="p-2 bg-surface-container-high rounded-full text-on-surface-variant hover:text-primary transition-colors active:scale-90"
+                                        >
+                                            <Icon name={showBakiye ? "eye-off" : "eye"} className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="text-on-surface-variant font-medium text-sm mt-2 flex items-center gap-1">
+                                        {t('bakiye')}
+                                        <Icon name="info" className="w-3 h-3 ml-1" />
+                                    </div>
+                                    {rates.USD > 0 && (
+                                        <div className="mt-2 flex gap-4 text-on-surface-variant/60 font-bold text-lg">
+                                            <div className="flex items-center gap-1">
+                                                <Icon name="dollar-sign" className="w-4 h-4" />
+                                                {showBakiye ? (
+                                                    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(bakiye * rates.USD)
+                                                ) : (() => {
+                                                    const amount = Math.abs(Math.round(bakiye * rates.USD));
+                                                    const str = amount.toString();
+                                                    const masked = str[0] + "*".repeat(str.length - 1);
+                                                    const sign = bakiye < 0 ? "-" : "";
+                                                    return `${sign}$${masked}`;
+                                                })()}
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <Icon name="euro" className="w-4 h-4" />
+                                                {showBakiye ? (
+                                                    new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(bakiye * rates.EUR)
+                                                ) : (() => {
+                                                    const amount = Math.abs(Math.round(bakiye * rates.EUR));
+                                                    const str = amount.toString();
+                                                    const masked = str[0] + "*".repeat(str.length - 1);
+                                                    const sign = bakiye < 0 ? "-" : "";
+                                                    return `${sign}${masked} €`;
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+
+                            {/* Financial Goals Section */}
+                            <section className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] space-y-4">
+                                <h2 className="text-xl font-bold tracking-tight text-on-surface">Finansal Hedeflerim</h2>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2 text-on-surface-variant text-sm font-medium">
+                                        <Icon name="calendar" className="w-4 h-4 text-primary" />
+                                        {currentTime.toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                    </div>
+                                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex justify-between items-center">
+                                        <div>
+                                            <div className="text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">{t('ay_basina')}</div>
+                                            <div className="text-2xl font-black text-primary">
+                                                {(() => {
+                                                    const now = new Date();
+                                                    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                                                    const diff = nextMonth - now;
+                                                    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+                                                })()}
+                                                <span className="text-sm font-bold ml-1">{t('gun_kaldi')}</span>
+                                            </div>
+                                        </div>
+                                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                            <Icon name="timer" className="w-6 h-6" />
+                                        </div>
+                                    </div>
+
+                                    {/* Goals Management */}
+                                    <div className="pt-2 space-y-4">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder={t('yeni_hedef')}
+                                                value={newGoal}
+                                                onChange={(e) => setNewGoal(e.target.value)}
+                                                onKeyPress={(e) => e.key === 'Enter' && handleAddGoal()}
+                                                className="flex-1 bg-surface-container-low border-transparent focus:border-primary/30 focus:ring-0 rounded-xl px-4 py-2 text-sm outline-none transition-all"
+                                            />
+                                            <button
+                                                onClick={handleAddGoal}
+                                                className="bg-primary text-on-primary p-2 rounded-xl active:scale-95 transition-transform"
+                                            >
+                                                <Icon name="plus" className="w-5 h-5" />
+                                            </button>
+                                        </div>
+
+                                        {/* Active Goals */}
                                         <div className="space-y-2">
-                                            {categories.map(cat => (
-                                                <div key={cat.id} className="flex justify-between items-center p-3 bg-surface-container-low rounded-xl">
-                                                    <span className="font-medium">{cat.isim}</span>
-                                                    <button onClick={() => handleDeleteCategory(cat.id)} className="text-error p-2 hover:bg-error/10 rounded-lg transition-colors">
+                                            {goals.filter(g => !g.completed).map(goal => (
+                                                <div key={goal.id} className="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl group animate-in slide-in-from-left duration-300">
+                                                    <button
+                                                        onClick={() => handleToggleGoal(goal)}
+                                                        className="w-5 h-5 rounded-full border-2 border-outline-variant hover:border-primary flex items-center justify-center transition-colors"
+                                                    >
+                                                    </button>
+                                                    <span className="flex-1 text-sm font-medium text-on-surface">{goal.text}</span>
+                                                    <button
+                                                        onClick={() => handleDeleteGoal(goal.id)}
+                                                        className="opacity-0 group-hover:opacity-100 p-1 text-error/60 hover:text-error transition-all"
+                                                    >
                                                         <Icon name="trash-2" className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             ))}
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
-                    {/* Quick Add Transaction Modal */}
-                    {showQuickAdd && (
-                        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-                            <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                                <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
-                                    <h3 className="font-bold text-lg">{t('hizli_islem_ekle')}</h3>
-                                    <button onClick={() => setShowQuickAdd(false)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
-                                        <Icon name="x" className="w-5 h-5" />
-                                    </button>
-                                </div>
-                                <div className="overflow-y-auto p-5 space-y-px">
-                                    <div className="bg-surface-container-low rounded-2xl p-1 space-y-px">
-                                        {/* Segmented Control */}
-                                        <div className="bg-surface-container-lowest p-4 rounded-t-xl">
-                                            <div className="flex bg-surface-container-high p-1 rounded-full relative">
-                                                <button
-                                                    onClick={() => setIsHarcama(true)}
-                                                    className={`flex-1 py-2 text-sm font-bold rounded-full transition-all z-10 ${isHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
-                                                >
-                                                    {t('harcama')}
-                                                </button>
-                                                <button
-                                                    onClick={() => setIsHarcama(false)}
-                                                    className={`flex-1 py-2 text-sm font-bold rounded-full transition-all z-10 ${!isHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
-                                                >
-                                                    {t('gelir')}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Amount Row */}
-                                        <div className="bg-surface-container-lowest p-4 flex justify-between items-center bg-surface-container-lowest">
-                                            <span className="text-on-surface-variant font-medium">{t('tutar')} (₺)</span>
-                                            <input
-                                                type="number"
-                                                value={tutar}
-                                                onChange={(e) => setTutar(e.target.value)}
-                                                className="text-right font-bold text-xl text-primary bg-transparent border-none focus:ring-0 p-0 placeholder:text-outline-variant w-1/2"
-                                                placeholder="0.00"
-                                            />
-                                        </div>
-
-                                        {/* Description Row */}
-                                        <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
-                                            <span className="text-on-surface-variant font-medium">{t('aciklama')}</span>
-                                            <input
-                                                type="text"
-                                                value={aciklama}
-                                                onChange={(e) => setAciklama(e.target.value)}
-                                                className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 placeholder:text-outline-variant w-1/2"
-                                                placeholder="örn: Kahve"
-                                            />
-                                        </div>
-
-                                        {/* Date Row */}
-                                        <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
-                                            <span className="text-on-surface-variant font-medium">{t('tarih')}</span>
-                                            <input
-                                                type="date"
-                                                value={tarih}
-                                                onChange={(e) => setTarih(e.target.value)}
-                                                className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 w-1/2"
-                                            />
-                                        </div>
-
-                                        {/* Category Row */}
-                                        <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
-                                            <span className="text-on-surface-variant font-medium">{t('kategori')}</span>
-                                            <select
-                                                value={secilenKategori}
-                                                onChange={(e) => setSecilenKategori(e.target.value)}
-                                                className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 w-1/2 font-medium"
-                                            >
-                                                <option value="">{t('seciniz')}</option>
-                                                {categories.map((cat, index) => (
-                                                    <option key={`${cat.id}-${index}`} value={cat.isim}>{cat.isim}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        {/* Switch Row */}
-                                        <div className="bg-surface-container-lowest p-4 flex justify-between items-center">
-                                            <span className="text-on-surface-variant font-medium">{t('tekrarli_islem')}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => setTekrarli(!tekrarli)}
-                                                className={`w-12 h-6 rounded-full relative flex items-center px-1 transition-colors duration-300 ${tekrarli ? 'bg-secondary' : 'bg-surface-container-high'}`}
-                                            >
-                                                <div className={`w-4 h-4 bg-white rounded-full absolute shadow-sm transition-transform duration-300 ${tekrarli ? 'right-1' : 'left-1'}`}></div>
-                                            </button>
-                                        </div>
-
-                                        {/* End Date Row - Conditional */}
-                                        {tekrarli && (
-                                            <div className="bg-surface-container-lowest p-4 rounded-b-xl flex justify-between items-center border-t border-surface-container-low animate-in slide-in-from-top duration-200">
-                                                <span className="text-on-surface-variant font-medium">{t('son_tekrar')}</span>
-                                                <input
-                                                    type="date"
-                                                    value={tekrarBitisTarihi}
-                                                    onChange={(e) => setTekrarBitisTarihi(e.target.value)}
-                                                    className="text-right text-on-surface bg-transparent border-none focus:ring-0 p-0 w-1/2"
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <button
-                                        onClick={handleEkle}
-                                        disabled={loading}
-                                        className="w-full bg-primary text-on-primary font-bold py-4 rounded-full shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
-                                    >
-                                        {loading ? <Icon name="loader-2" className="animate-spin w-5 h-5" /> : <Icon name="plus" className="w-5 h-5" />}
-                                        {loading ? t('ekleniyor') : t('ekle')}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Edit Transaction Modal */}
-                    {editingTx && (
-                        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-                            <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col">
-                                <div className="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
-                                    <h3 className="font-bold text-lg">{t('islem_duzenle')}</h3>
-                                    <button onClick={() => setEditingTx(null)} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
-                                        <Icon name="x" className="w-5 h-5" />
-                                    </button>
-                                </div>
-                                <div className="p-5 space-y-4">
-                                    <div className="flex bg-surface-container-high p-1 rounded-full relative">
-                                        <button
-                                            onClick={() => setEditIsHarcama(true)}
-                                            className={`flex-1 py-1.5 text-sm font-bold rounded-full transition-all z-10 ${editIsHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
-                                        >
-                                            {t('harcama')}
-                                        </button>
-                                        <button
-                                            onClick={() => setEditIsHarcama(false)}
-                                            className={`flex-1 py-1.5 text-sm font-bold rounded-full transition-all z-10 ${!editIsHarcama ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}
-                                        >
-                                            {t('gelir')}
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3 pt-2">
-                                        <div>
-                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('tutar')} (₺)</label>
-                                            <input type="number" value={editTutar} onChange={e => setEditTutar(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary font-bold text-primary" />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('aciklama')}</label>
-                                            <input type="text" value={editAciklama} onChange={e => setEditAciklama(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary" />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('tarih')}</label>
-                                            <input type="date" value={editTarih} onChange={e => setEditTarih(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary" />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('kategori')}</label>
-                                            <select value={editKategori} onChange={e => setEditKategori(e.target.value)} className="w-full bg-surface-container-low rounded-xl px-4 py-2 mt-1 outline-none border-none focus:ring-2 focus:ring-primary">
-                                                <option value="">{t('seciniz')}</option>
-                                                {categories.map(cat => <option key={cat.id} value={cat.isim}>{cat.isim}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="flex justify-between items-center bg-surface-container-low rounded-xl px-4 py-3">
-                                            <span className="text-sm font-bold text-on-surface-variant">{t('tekrarli_islem')}</span>
-                                            <button type="button" onClick={() => setEditTekrarli(!editTekrarli)} className={`w-10 h-5 rounded-full relative flex items-center px-1 transition-colors duration-300 ${editTekrarli ? 'bg-secondary' : 'bg-outline-variant'}`}>
-                                                <div className={`w-3.5 h-3.5 bg-white rounded-full absolute shadow-sm transition-transform duration-300 ${editTekrarli ? 'right-1' : 'left-1'}`}></div>
-                                            </button>
-                                        </div>
-                                        {editTekrarli && (
-                                            <div className="bg-surface-container-low rounded-xl px-4 py-3 animate-in slide-in-from-top duration-200">
-                                                <label className="text-xs font-bold text-on-surface-variant uppercase ml-1">{t('son_tekrar')}</label>
-                                                <input type="date" value={editTekrarBitisTarihi} onChange={e => setEditTekrarBitisTarihi(e.target.value)} className="w-full bg-transparent rounded-xl mt-1 outline-none border-none focus:ring-0 p-0 text-sm" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <button onClick={handleUpdateTx} disabled={editLoading} className="w-full bg-primary text-on-primary font-bold py-3 rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 mt-2">
-                                        {editLoading ? t('kaydediliyor') : t('kaydet')}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Top Navigation */}
-                    <header className="bg-[#faf9fe]/80 backdrop-blur-2xl w-full top-0 sticky z-50 flex justify-between items-end px-6 pt-12 pb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 flex items-center justify-center">
-                                <img src="UX Design/Logo/FinansLogo.png" alt="Logo" className="w-full h-full object-contain" />
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-xl font-black tracking-tighter text-primary leading-tight">Finans</span>
-                                <span className="text-[10px] font-bold text-on-surface-variant opacity-80">{session.user.email}</span>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <button 
-                                onClick={() => setShowNotifications(true)}
-                                className="text-slate-900 hover:opacity-70 transition-opacity active:scale-95 duration-200 relative"
-                            >
-                                <Icon name="bell" className="w-6 h-6" />
-                                {transactions.filter(t => new Date(t.tarih) > now).length > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-error text-on-primary text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                                        {transactions.filter(t => new Date(t.tarih) > now).length}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => supabase.auth.signOut()}
-                                className="text-error hover:opacity-70 transition-opacity active:scale-95 duration-200 bg-error/10 p-2 rounded-full"
-                                title={t('cikis')}
-                            >
-                                <Icon name="log-out" className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </header>
-
-                    <div className="px-6 pt-8 max-w-md mx-auto space-y-10 pb-24">
-                        {/* Hero Balance Section */}
-                        <section className="space-y-1">
-                            <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">{t('finansal_odagim')}</h1>
-                            <div className="pt-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="text-[2.8rem] font-black leading-none tracking-tight text-secondary">
-                                        {showBakiye ? (
-                                            new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(bakiye)
-                                        ) : (() => {
-                                            const amount = Math.abs(Math.round(bakiye));
-                                            const str = amount.toString();
-                                            const masked = str[0] + "*".repeat(str.length - 1);
-                                            const sign = bakiye < 0 ? "-" : "";
-                                            return `${sign}${masked} ₺`;
-                                        })()}
-                                    </div>
-                                    <button 
-                                        onClick={() => setShowBakiye(!showBakiye)}
-                                        className="p-2 bg-surface-container-high rounded-full text-on-surface-variant hover:text-primary transition-colors active:scale-90"
-                                    >
-                                        <Icon name={showBakiye ? "eye-off" : "eye"} className="w-5 h-5" />
-                                    </button>
-                                </div>
-                                <div className="text-on-surface-variant font-medium text-sm mt-2 flex items-center gap-1">
-                                    {t('bakiye')}
-                                    <Icon name="info" className="w-3 h-3 ml-1" />
-                                </div>
-                                {rates.USD > 0 && (
-                                    <div className="mt-2 flex gap-4 text-on-surface-variant/60 font-bold text-lg">
-                                        <div className="flex items-center gap-1">
-                                            <Icon name="dollar-sign" className="w-4 h-4" />
-                                            {showBakiye ? (
-                                                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(bakiye * rates.USD)
-                                            ) : (() => {
-                                                const amount = Math.abs(Math.round(bakiye * rates.USD));
-                                                const str = amount.toString();
-                                                const masked = str[0] + "*".repeat(str.length - 1);
-                                                const sign = bakiye < 0 ? "-" : "";
-                                                return `${sign}$${masked}`;
-                                            })()}
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Icon name="euro" className="w-4 h-4" />
-                                            {showBakiye ? (
-                                                new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(bakiye * rates.EUR)
-                                            ) : (() => {
-                                                const amount = Math.abs(Math.round(bakiye * rates.EUR));
-                                                const str = amount.toString();
-                                                const masked = str[0] + "*".repeat(str.length - 1);
-                                                const sign = bakiye < 0 ? "-" : "";
-                                                return `${sign}${masked} €`;
-                                            })()}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-
-                        {/* Financial Goals Section */}
-                        <section className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] space-y-4">
-                            <h2 className="text-xl font-bold tracking-tight text-on-surface">Finansal Hedeflerim</h2>
-                            <div className="space-y-3">
-                                <div className="flex items-center gap-2 text-on-surface-variant text-sm font-medium">
-                                    <Icon name="calendar" className="w-4 h-4 text-primary" />
-                                    {currentTime.toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                </div>
-                                <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex justify-between items-center">
-                                    <div>
-                                        <div className="text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">{t('ay_basina')}</div>
-                                        <div className="text-2xl font-black text-primary">
-                                            {(() => {
-                                                const now = new Date();
-                                                const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-                                                const diff = nextMonth - now;
-                                                return Math.ceil(diff / (1000 * 60 * 60 * 24));
-                                            })()}
-                                            <span className="text-sm font-bold ml-1">{t('gun_kaldi')}</span>
-                                        </div>
-                                    </div>
-                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                        <Icon name="timer" className="w-6 h-6" />
-                                    </div>
-                                </div>
-
-                                {/* Goals Management */}
-                                <div className="pt-2 space-y-4">
-                                    <div className="flex gap-2">
-                                        <input 
-                                            type="text" 
-                                            placeholder={t('yeni_hedef')} 
-                                            value={newGoal}
-                                            onChange={(e) => setNewGoal(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && handleAddGoal()}
-                                            className="flex-1 bg-surface-container-low border-transparent focus:border-primary/30 focus:ring-0 rounded-xl px-4 py-2 text-sm outline-none transition-all"
-                                        />
-                                        <button 
-                                            onClick={handleAddGoal}
-                                            className="bg-primary text-on-primary p-2 rounded-xl active:scale-95 transition-transform"
-                                        >
-                                            <Icon name="plus" className="w-5 h-5" />
-                                        </button>
-                                    </div>
-
-                                    {/* Active Goals */}
-                                    <div className="space-y-2">
-                                        {goals.filter(g => !g.completed).map(goal => (
-                                            <div key={goal.id} className="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl group animate-in slide-in-from-left duration-300">
-                                                <button 
-                                                    onClick={() => handleToggleGoal(goal)}
-                                                    className="w-5 h-5 rounded-full border-2 border-outline-variant hover:border-primary flex items-center justify-center transition-colors"
-                                                >
-                                                </button>
-                                                <span className="flex-1 text-sm font-medium text-on-surface">{goal.text}</span>
-                                                <button 
-                                                    onClick={() => handleDeleteGoal(goal.id)}
-                                                    className="opacity-0 group-hover:opacity-100 p-1 text-error/60 hover:text-error transition-all"
-                                                >
-                                                    <Icon name="trash-2" className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Completed Goals */}
-                                    {goals.some(g => g.completed) && (
-                                        <div className="pt-2">
-                                            <div className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2 opacity-50">{t('tamamlananlar')}</div>
-                                            <div className="space-y-2">
-                                                {goals.filter(g => g.completed).map(goal => (
-                                                    <div key={goal.id} className="flex items-center gap-3 p-3 bg-surface-container-low/50 rounded-xl opacity-60">
-                                                        <div 
-                                                            className="w-5 h-5 rounded-full bg-secondary text-on-primary flex items-center justify-center cursor-pointer"
-                                                            onClick={() => handleToggleGoal(goal)}
-                                                        >
-                                                            <Icon name="check" className="w-3.5 h-3.5" />
+                                        {/* Completed Goals */}
+                                        {goals.some(g => g.completed) && (
+                                            <div className="pt-2">
+                                                <div className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2 opacity-50">{t('tamamlananlar')}</div>
+                                                <div className="space-y-2">
+                                                    {goals.filter(g => g.completed).map(goal => (
+                                                        <div key={goal.id} className="flex items-center gap-3 p-3 bg-surface-container-low/50 rounded-xl opacity-60">
+                                                            <div
+                                                                className="w-5 h-5 rounded-full bg-secondary text-on-primary flex items-center justify-center cursor-pointer"
+                                                                onClick={() => handleToggleGoal(goal)}
+                                                            >
+                                                                <Icon name="check" className="w-3.5 h-3.5" />
+                                                            </div>
+                                                            <span className="flex-1 text-sm font-medium text-on-surface line-through">{goal.text}</span>
+                                                            <button
+                                                                onClick={() => handleDeleteGoal(goal.id)}
+                                                                className="p-1 text-on-surface-variant hover:text-error transition-all"
+                                                            >
+                                                                <Icon name="trash-2" className="w-4 h-4" />
+                                                            </button>
                                                         </div>
-                                                        <span className="flex-1 text-sm font-medium text-on-surface line-through">{goal.text}</span>
-                                                        <button 
-                                                            onClick={() => handleDeleteGoal(goal.id)}
-                                                            className="p-1 text-on-surface-variant hover:text-error transition-all"
-                                                        >
-                                                            <Icon name="trash-2" className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                ))}
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        </section>
-
-                        {/* Yaklaşan Ödemeler - Alert Cards */}
-                        {upcomingTransactions.length > 0 && (
-                            <section className="space-y-3">
-                                <h2 className="font-['Inter'] text-[11px] font-bold tracking-widest text-on-surface-variant uppercase pl-1">{t('yaklasan')}</h2>
-                                {upcomingTransactions.map(tx => {
-                                    const txDate = new Date(tx.tarih);
-                                    // Reset hours to compare just days
-                                    const today = new Date();
-                                    today.setHours(0, 0, 0, 0);
-                                    const tDay = new Date(txDate);
-                                    tDay.setHours(0, 0, 0, 0);
-
-                                    const diffTime = tDay - today;
-                                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-                                    let timeText = "";
-                                    if (diffDays === 0) timeText = t('bugun');
-                                    else if (diffDays === 1) timeText = t('yarin');
-                                    else timeText = `${diffDays} ${t('gun_sonra')}`;
-
-                                    return (
-                                        <div key={`upcoming-${tx.id}`} className={`bg-surface-container-lowest p-4 rounded-xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] flex items-center gap-4 group active:scale-[0.98] transition-all duration-200 cursor-pointer ${tx.tamamlandi ? 'opacity-50' : ''}`}>
-                                            <div onClick={(e) => handleToggleComplete(e, tx)} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${tx.tamamlandi ? 'bg-secondary text-on-primary' : 'bg-tertiary-fixed text-tertiary'}`}>
-                                                <Icon name={tx.tamamlandi ? "check" : "alert-circle"} className="w-5 h-5" />
-                                            </div>
-                                            <div className="flex-1 min-w-0" onClick={() => openEditModal(tx)}>
-                                                <div className={`font-bold text-on-surface truncate ${tx.tamamlandi ? 'line-through' : ''}`}>{tx.aciklama}</div>
-                                                <div className="text-on-surface-variant text-sm">{timeText} • {formatCurrency(tx.miktar, 0, language)}</div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={(e) => handleToggleComplete(e, tx)} className={`p-2 rounded-lg transition-colors ${tx.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title={t('tamamla')}>
-                                                    <Icon name="check-circle-2" className="w-5 h-5" />
-                                                </button>
-                                                <Icon name="chevron-right" className="text-outline-variant w-5 h-5 self-center" />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
                             </section>
-                        )}
 
-                        {/* AI Insights Section */}
-                        <section>
-                            <div className="relative overflow-hidden bg-primary/5 rounded-2xl p-5 border border-primary/10">
-                                {aiInsight || insightLoading ? (
-                                    <div className="flex gap-3 items-start">
-                                        <div className="bg-primary text-on-primary p-2 rounded-lg shrink-0">
-                                            {insightLoading ? <Icon name="loader-2" className="w-5 h-5 animate-spin" /> : <Icon name="bot" className="w-5 h-5" />}
-                                        </div>
-                                        <p className="text-primary font-medium text-[14px] leading-relaxed">
-                                            {insightLoading ? (language === 'tr' ? "Finansal verileriniz analiz ediliyor..." : "Your financial data is being analyzed...") : aiInsight}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col gap-3 items-center text-center">
-                                        <div className="bg-primary/20 text-primary p-3 rounded-full">
-                                            <Icon name="sparkles" className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-bold text-primary">{t('ai')}</h3>
-                                            <p className="text-primary/80 text-sm mt-1">{t('ai_aciklama')}</p>
-                                        </div>
-                                        <button
-                                            onClick={() => fetchAiInsight('general')}
-                                            className="mt-2 bg-primary text-on-primary px-6 py-2.5 rounded-full font-bold text-sm shadow-md active:scale-95 transition-transform"
-                                        >
-                                            {t('analiz_iste')}
-                                        </button>
-                                    </div>
-                                )}
-                                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-primary/10 blur-3xl rounded-full pointer-events-none"></div>
-                            </div>
-                        </section>
+                            {/* Yaklaşan Ödemeler - Alert Cards */}
+                            {upcomingTransactions.length > 0 && (
+                                <section className="space-y-3">
+                                    <h2 className="font-['Inter'] text-[11px] font-bold tracking-widest text-on-surface-variant uppercase pl-1">{t('yaklasan')}</h2>
+                                    {upcomingTransactions.map(tx => {
+                                        const txDate = new Date(tx.tarih);
+                                        // Reset hours to compare just days
+                                        const today = new Date();
+                                        today.setHours(0, 0, 0, 0);
+                                        const tDay = new Date(txDate);
+                                        tDay.setHours(0, 0, 0, 0);
 
+                                        const diffTime = tDay - today;
+                                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
+                                        let timeText = "";
+                                        if (diffDays === 0) timeText = t('bugun');
+                                        else if (diffDays === 1) timeText = t('yarin');
+                                        else timeText = `${diffDays} ${t('gun_sonra')}`;
 
-                        {/* Transactions List */}
-                        <section className="space-y-4">
-                            <div className="flex justify-between items-center">
-                                <h2 className="text-xl font-bold tracking-tight">{t('gecmis')}</h2>
-                                <button onClick={() => {
-                                    setShowAllPast(!showAllPast);
-                                    if (showAllPast) setHistoryCategoryFilter("");
-                                }} className="p-2 -mr-2 hover:bg-surface-container-high rounded-full transition-colors active:scale-95 flex items-center justify-center">
-                                    <Icon name={showAllPast ? "chevron-up" : "chevron-down"} className="text-on-surface-variant w-5 h-5" />
-                                </button>
-                            </div>
-
-                            {showAllPast && categories.length > 0 && (
-                                <div className="flex overflow-x-auto pb-2 gap-2 snap-x hide-scrollbar">
-                                    <button
-                                        onClick={() => setHistoryCategoryFilter("")}
-                                        className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors snap-start ${historyCategoryFilter === "" ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'}`}
-                                    >
-                                        {language === 'tr' ? 'Tümü' : 'All'}
-                                    </button>
-                                    {categories.map(cat => (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => setHistoryCategoryFilter(cat.isim)}
-                                            className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors snap-start ${historyCategoryFilter === cat.isim ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'}`}
-                                        >
-                                            {cat.isim}
-                                        </button>
-                                    ))}
-                                </div>
+                                        return (
+                                            <div key={`upcoming-${tx.id}`} className={`bg-surface-container-lowest p-4 rounded-xl shadow-[0_8px_24px_rgba(26,27,31,0.04)] flex items-center gap-4 group active:scale-[0.98] transition-all duration-200 cursor-pointer ${tx.tamamlandi ? 'opacity-50' : ''}`}>
+                                                <div onClick={(e) => handleToggleComplete(e, tx)} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${tx.tamamlandi ? 'bg-secondary text-on-primary' : 'bg-tertiary-fixed text-tertiary'}`}>
+                                                    <Icon name={tx.tamamlandi ? "check" : "alert-circle"} className="w-5 h-5" />
+                                                </div>
+                                                <div className="flex-1 min-w-0" onClick={() => openEditModal(tx)}>
+                                                    <div className={`font-bold text-on-surface truncate ${tx.tamamlandi ? 'line-through' : ''}`}>{tx.aciklama}</div>
+                                                    <div className="text-on-surface-variant text-sm">{timeText} • {formatCurrency(tx.miktar, 0, language)}</div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={(e) => handleToggleComplete(e, tx)} className={`p-2 rounded-lg transition-colors ${tx.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title={t('tamamla')}>
+                                                        <Icon name="check-circle-2" className="w-5 h-5" />
+                                                    </button>
+                                                    <Icon name="chevron-right" className="text-outline-variant w-5 h-5 self-center" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </section>
                             )}
 
-                            <div className="bg-surface-container-low rounded-2xl overflow-hidden space-y-px">
-                                {transactions.length === 0 ? (
-                                    <div className="bg-surface-container-lowest p-8 text-center text-on-surface-variant text-sm">
-                                        {language === 'tr' ? 'Henüz bir geçmiş işlem bulunmuyor.' : 'No transaction history found yet.'}
-                                    </div>
-                                ) : (
-                                    (() => {
-                                        const filteredPast = showAllPast 
-                                            ? transactions.filter(t => historyCategoryFilter === "" || t.kategori === historyCategoryFilter)
-                                            : transactions.slice(0, 3);
-                                        
-                                        if (filteredPast.length === 0) {
-                                            return (
-                                                <div className="bg-surface-container-lowest p-8 text-center text-on-surface-variant text-sm">
-                                                    {language === 'tr' ? 'Bu kategoride işlem bulunmuyor.' : 'No transactions found in this category.'}
-                                                </div>
-                                            );
-                                        }
-
-                                        return filteredPast.map(item => (
-                                            <div key={item.id} className={`bg-surface-container-lowest p-4 flex items-center gap-3 cursor-pointer hover:bg-surface-container-low transition-colors group ${item.tamamlandi ? 'opacity-50' : ''}`}>
-                                                <div onClick={(e) => handleToggleComplete(e, item)} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.tamamlandi ? 'bg-secondary text-on-primary' : (item.tip === 'gelir' ? 'bg-secondary-container' : 'bg-surface-container-high')}`}>
-                                                    {item.tamamlandi 
-                                                        ? <Icon name="check" className="w-5 h-5" />
-                                                        : (item.tip === 'gelir'
-                                                            ? <Icon name="arrow-down-to-line" className="text-on-secondary-container w-5 h-5" />
-                                                            : <Icon name="shopping-bag" className="text-on-surface-variant w-5 h-5" />
-                                                        )
-                                                    }
-                                                </div>
-                                                <div className="flex-1 min-w-0" onClick={() => openEditModal(item)}>
-                                                    <div className={`font-bold text-sm flex items-center flex-wrap gap-x-2 gap-y-1 ${item.tamamlandi ? 'line-through text-on-surface-variant' : ''}`}>
-                                                        <span className="truncate max-w-full">{item.aciklama}</span>
-                                                        {item.kategori && <span className="text-[10px] px-2 py-0.5 bg-outline-variant/30 text-on-surface-variant rounded-full font-medium whitespace-nowrap">{item.kategori}</span>}
-                                                        {item.tekrarli && <Icon name="repeat" className="inline w-3 h-3 text-primary shrink-0" />}
-                                                    </div>
-                                                    <div className="text-xs text-outline font-medium flex items-center gap-2">
-                                                        {formatedDateString(item.tarih)}
-                                                    </div>
-                                                </div>
-                                                <div className="text-right flex flex-col items-end gap-1">
-                                                    <div className={`font-bold ${item.tamamlandi ? 'line-through text-on-surface-variant' : (item.tip === 'gelir' ? 'text-secondary' : 'text-error')}`}>
-                                                        {item.tip === 'gelir' ? '+' : '-'} {formatCurrency(item.miktar, 0, language)}
-                                                    </div>
-                                                    <div className="flex gap-1 items-center">
-                                                        <button onClick={(e) => handleToggleComplete(e, item)} className={`p-2 rounded-lg transition-colors active:scale-95 ${item.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title={t('tamamla')}>
-                                                            <Icon name="check-circle-2" className="w-4 h-4" />
-                                                        </button>
-                                                        <button onClick={() => openEditModal(item)} className="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-low rounded-lg active:scale-95" title={t('duzenle')}>
-                                                            <Icon name="pencil" className="w-4 h-4" />
-                                                        </button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteTx(item.id); }} className="p-2 text-on-surface-variant hover:text-error transition-colors bg-surface-container-low rounded-lg active:scale-95" title={t('sil')}>
-                                                            <Icon name="trash-2" className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
+                            {/* AI Insights Section */}
+                            <section>
+                                <div className="relative overflow-hidden bg-primary/5 rounded-2xl p-5 border border-primary/10">
+                                    {aiInsight || insightLoading ? (
+                                        <div className="flex gap-3 items-start">
+                                            <div className="bg-primary text-on-primary p-2 rounded-lg shrink-0">
+                                                {insightLoading ? <Icon name="loader-2" className="w-5 h-5 animate-spin" /> : <Icon name="bot" className="w-5 h-5" />}
                                             </div>
-                                        ));
-                                    })()
-                                )}
-                                {!showAllPast && transactions.length > 3 && (
-                                    <button onClick={() => setShowAllPast(true)} className="w-full relative bg-surface-container-lowest py-3 text-sm font-bold text-primary transition-colors hover:bg-surface-container-high active:scale-[0.99]">
-                                        {t('tumunu_gor')} ({transactions.length})
+                                            <p className="text-primary font-medium text-[14px] leading-relaxed">
+                                                {insightLoading ? (language === 'tr' ? "Finansal verileriniz analiz ediliyor..." : "Your financial data is being analyzed...") : aiInsight}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-3 items-center text-center">
+                                            <div className="bg-primary/20 text-primary p-3 rounded-full">
+                                                <Icon name="sparkles" className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-primary">{t('ai')}</h3>
+                                                <p className="text-primary/80 text-sm mt-1">{t('ai_aciklama')}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => fetchAiInsight('general')}
+                                                className="mt-2 bg-primary text-on-primary px-6 py-2.5 rounded-full font-bold text-sm shadow-md active:scale-95 transition-transform"
+                                            >
+                                                {t('analiz_iste')}
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-primary/10 blur-3xl rounded-full pointer-events-none"></div>
+                                </div>
+                            </section>
+
+
+
+                            {/* Transactions List */}
+                            <section className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-xl font-bold tracking-tight">{t('gecmis')}</h2>
+                                    <button onClick={() => {
+                                        setShowAllPast(!showAllPast);
+                                        if (showAllPast) setHistoryCategoryFilter("");
+                                    }} className="p-2 -mr-2 hover:bg-surface-container-high rounded-full transition-colors active:scale-95 flex items-center justify-center">
+                                        <Icon name={showAllPast ? "chevron-up" : "chevron-down"} className="text-on-surface-variant w-5 h-5" />
                                     </button>
+                                </div>
+
+                                {showAllPast && categories.length > 0 && (
+                                    <div className="flex overflow-x-auto pb-2 gap-2 snap-x hide-scrollbar">
+                                        <button
+                                            onClick={() => setHistoryCategoryFilter("")}
+                                            className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors snap-start ${historyCategoryFilter === "" ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'}`}
+                                        >
+                                            {language === 'tr' ? 'Tümü' : 'All'}
+                                        </button>
+                                        {categories.map(cat => (
+                                            <button
+                                                key={cat.id}
+                                                onClick={() => setHistoryCategoryFilter(cat.isim)}
+                                                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors snap-start ${historyCategoryFilter === cat.isim ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'}`}
+                                            >
+                                                {cat.isim}
+                                            </button>
+                                        ))}
+                                    </div>
                                 )}
-                            </div>
-                        </section>
 
-                        {/* Charts Section */}
-                        <CategoryCharts transactions={transactions} t={t} language={language} />
-                    </div>
+                                <div className="bg-surface-container-low rounded-2xl overflow-hidden space-y-px">
+                                    {pastTransactions.length === 0 ? (
+                                        <div className="bg-surface-container-lowest p-8 text-center text-on-surface-variant text-sm">
+                                            {language === 'tr' ? 'Henüz bir geçmiş işlem bulunmuyor.' : 'No transaction history found yet.'}
+                                        </div>
+                                    ) : (
+                                        (() => {
+                                            const filteredPast = showAllPast
+                                                ? pastTransactions.filter(t => historyCategoryFilter === "" || t.kategori === historyCategoryFilter)
+                                                : pastTransactions.slice(0, 3);
 
-                    {/* BottomNavBar */}
-                    <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-3 pb-8 bg-[#faf9fe]/80 backdrop-blur-2xl z-50 rounded-t-3xl shadow-[0_-8px_24px_rgba(26,27,31,0.04)]">
-                        <a className="flex flex-col items-center justify-center text-primary scale-110 transition-transform tap-highlight-none active:scale-90 duration-300" href="#">
-                            <Icon name="wallet" className="w-6 h-6" />
-                            <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">{t('genel')}</span>
-                        </a>
-                        <button 
-                            onClick={() => setShowQuickAdd(true)}
-                            className="flex flex-col items-center justify-center text-[#414755] opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300"
-                        >
-                            <Icon name="plus-circle" className="w-6 h-6" />
-                            <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">{t('ekle')}</span>
-                        </button>
-                        <button 
-                            onClick={() => setShowReport(true)}
-                            className="flex flex-col items-center justify-center text-[#414755] opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300"
-                        >
-                            <Icon name="bar-chart-2" className="w-6 h-6" />
-                            <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">{t('rapor')}</span>
-                        </button>
-                        <button 
-                            onClick={() => setShowSettings(true)}
-                            className="flex flex-col items-center justify-center text-[#414755] opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300"
-                        >
-                            <Icon name="settings" className="w-6 h-6" />
-                            <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">{t('ayarlar')}</span>
-                        </button>
-                    </nav>
-                </main>
-            </>
-        );
-    }
+                                            if (filteredPast.length === 0) {
+                                                return (
+                                                    <div className="bg-surface-container-lowest p-8 text-center text-on-surface-variant text-sm">
+                                                        {language === 'tr' ? 'Bu kategoride işlem bulunmuyor.' : 'No transactions found in this category.'}
+                                                    </div>
+                                                );
+                                            }
+
+                                            return filteredPast.map(item => (
+                                                <div key={item.id} className={`bg-surface-container-lowest p-4 flex items-center gap-3 cursor-pointer hover:bg-surface-container-low transition-colors group ${item.tamamlandi ? 'opacity-50' : ''}`}>
+                                                    <div onClick={(e) => handleToggleComplete(e, item)} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.tamamlandi ? 'bg-secondary text-on-primary' : (item.tip === 'gelir' ? 'bg-secondary-container' : 'bg-surface-container-high')}`}>
+                                                        {item.tamamlandi
+                                                            ? <Icon name="check" className="w-5 h-5" />
+                                                            : (item.tip === 'gelir'
+                                                                ? <Icon name="arrow-down-to-line" className="text-on-secondary-container w-5 h-5" />
+                                                                : <Icon name="shopping-bag" className="text-on-surface-variant w-5 h-5" />
+                                                            )
+                                                        }
+                                                    </div>
+                                                    <div className="flex-1 min-w-0" onClick={() => openEditModal(item)}>
+                                                        <div className={`font-bold text-sm flex items-center flex-wrap gap-x-2 gap-y-1 ${item.tamamlandi ? 'line-through text-on-surface-variant' : ''}`}>
+                                                            <span className="truncate max-w-full">{item.aciklama}</span>
+                                                            {item.kategori && <span className="text-[10px] px-2 py-0.5 bg-outline-variant/30 text-on-surface-variant rounded-full font-medium whitespace-nowrap">{item.kategori}</span>}
+                                                            {item.tekrarli && <Icon name="repeat" className="inline w-3 h-3 text-primary shrink-0" />}
+                                                        </div>
+                                                        <div className="text-xs text-outline font-medium flex items-center gap-2">
+                                                            {formatedDateString(item.tarih)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right flex flex-col items-end gap-1">
+                                                        <div className={`font-bold ${item.tamamlandi ? 'line-through text-on-surface-variant' : (item.tip === 'gelir' ? 'text-secondary' : 'text-error')}`}>
+                                                            {item.tip === 'gelir' ? '+' : '-'} {formatCurrency(item.miktar, 0, language)}
+                                                        </div>
+                                                        <div className="flex gap-1 items-center">
+                                                            <button onClick={(e) => handleToggleComplete(e, item)} className={`p-2 rounded-lg transition-colors active:scale-95 ${item.tamamlandi ? 'bg-secondary/10 text-secondary' : 'bg-surface-container-low text-on-surface-variant hover:text-secondary'}`} title={t('tamamla')}>
+                                                                <Icon name="check-circle-2" className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={() => openEditModal(item)} className="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-low rounded-lg active:scale-95" title={t('duzenle')}>
+                                                                <Icon name="pencil" className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteTx(item.id); }} className="p-2 text-on-surface-variant hover:text-error transition-colors bg-surface-container-low rounded-lg active:scale-95" title={t('sil')}>
+                                                                <Icon name="trash-2" className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ));
+                                        })()
+                                    )}
+                                    {!showAllPast && pastTransactions.length > 3 && (
+                                        <button onClick={() => setShowAllPast(true)} className="w-full relative bg-surface-container-lowest py-3 text-sm font-bold text-primary transition-colors hover:bg-surface-container-high active:scale-[0.99]">
+                                            {t('tumunu_gor')} ({pastTransactions.length})
+                                        </button>
+                                    )}
+                                </div>
+                            </section>
+
+                            {/* Charts Section */}
+                            <CategoryCharts transactions={transactions} t={t} language={language} />
+                        </div>
+
+                        {/* BottomNavBar */}
+                        <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-3 pb-8 bg-[#faf9fe]/80 backdrop-blur-2xl z-50 rounded-t-3xl shadow-[0_-8px_24px_rgba(26,27,31,0.04)]">
+                            <a className="flex flex-col items-center justify-center text-primary scale-110 transition-transform tap-highlight-none active:scale-90 duration-300" href="#">
+                                <Icon name="wallet" className="w-6 h-6" />
+                                <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">{t('genel')}</span>
+                            </a>
+                            <button
+                                onClick={() => setShowQuickAdd(true)}
+                                className="flex flex-col items-center justify-center text-[#414755] opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300"
+                            >
+                                <Icon name="plus-circle" className="w-6 h-6" />
+                                <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">{t('ekle')}</span>
+                            </button>
+                            <button
+                                onClick={() => setShowAllTxModal(true)}
+                                className="flex flex-col items-center justify-center text-[#414755] opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300"
+                            >
+                                <Icon name="list" className="w-6 h-6" />
+                                <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">{t('tum_islemler')}</span>
+                            </button>
+                            <button
+                                onClick={() => setShowReport(true)}
+                                className="flex flex-col items-center justify-center text-[#414755] opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300"
+                            >
+                                <Icon name="bar-chart-2" className="w-6 h-6" />
+                                <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">{t('rapor')}</span>
+                            </button>
+                            <button
+                                onClick={() => setShowSettings(true)}
+                                className="flex flex-col items-center justify-center text-[#414755] opacity-60 hover:opacity-100 transition-all tap-highlight-none active:scale-90 duration-300"
+                            >
+                                <Icon name="settings" className="w-6 h-6" />
+                                <span className="font-['Inter'] text-[11px] font-medium tracking-wide uppercase mt-1">{t('ayarlar')}</span>
+                            </button>
+                        </nav>
+                    </main>
+                </>
+            );
+        }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
 
