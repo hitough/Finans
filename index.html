@@ -1047,17 +1047,20 @@
                 element.style.height = 'auto';
                 element.style.overflow = 'visible';
                 
+                // Renklerin PDF'e doğru yansıması için zorla
+                const bars = element.querySelectorAll('.bg-primary, .bg-secondary, .bg-error');
+                bars.forEach(b => b.style.webkitPrintColorAdjust = 'exact');
+
                 const opt = {
-                    margin: [10, 5],
+                    margin: [10, 10, 10, 10], // top, left, bottom, right
                     filename: `Finans_Rapor_${reportMonth}.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
+                    image: { type: 'jpeg', quality: 1 },
                     html2canvas: { 
                         scale: 2, 
                         useCORS: true, 
                         logging: false,
                         letterRendering: true,
-                        windowWidth: element.scrollWidth,
-                        windowHeight: element.scrollHeight
+                        backgroundColor: '#ffffff'
                     },
                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                     pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
@@ -1140,7 +1143,7 @@
                                         const mBakiye = mGelir - mGider;
 
                                         return (
-                                            <section className="space-y-4">
+                                            <section className="space-y-4 break-inside-avoid">
                                                 <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">
                                                     {new Date(reportMonth + "-01").toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US', { month: 'long', year: 'numeric' })} {t('ozeti')}
                                                 </h4>
@@ -1169,7 +1172,7 @@
                                     })()}
 
                                     {/* Category Distribution */}
-                                    <section className="space-y-4">
+                                    <section className="space-y-4 break-inside-avoid">
                                         <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">{t('en_cok_harcananlar')}</h4>
                                         <div className="space-y-3">
                                             {Object.entries(
@@ -1203,7 +1206,7 @@
                                     </section>
 
                                     {/* AI Section in Report */}
-                                    <section className="pt-2">
+                                    <section className="pt-2 break-inside-avoid">
                                         <div className="bg-primary/5 rounded-2xl p-5 border border-primary/10 relative overflow-hidden">
                                             <h4 className="text-[11px] font-bold text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
                                                 <Icon name="sparkles" className="w-3 h-3" />
